@@ -1,6 +1,11 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:notes_app/core/note_colors.dart';
 import 'package:notes_app/core/note_text_style.dart';
+import 'package:notes_app/data/fake_notes.dart';
+import 'package:notes_app/features/notes/presentation/widgets/note_card_builder.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -16,6 +21,9 @@ class _HomePageState extends State<HomePage> {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
           automaticallyImplyLeading: false,
           title: const Text('Notes'),
           actions: <Widget>[
@@ -51,32 +59,85 @@ class _HomePageState extends State<HomePage> {
           ],
 
           bottom: PreferredSize(
-            preferredSize: Size.fromHeight(80),
+            preferredSize: Size.fromHeight(75),
 
-            child: Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: TabBar(
-                dividerColor: Colors.transparent,
-                indicatorColor: Color(0xFFF5C65D),
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 1, sigmaY: 20),
+                child: Container(
+                  color: Colors.white.withValues(alpha: 0),
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: TabBar(
+                      dividerColor: Colors.transparent,
 
-                indicatorWeight: 3,
-                indicatorSize: TabBarIndicatorSize.label,
-                labelColor: Color(0xFFF5C65D),
-                unselectedLabelColor: Colors.grey,
+                      indicatorColor: Color(0xFFF5C65D),
 
-                labelStyle: NoteTextStyle.tabActive,
-                unselectedLabelStyle: NoteTextStyle.tabInactive,
+                      indicatorWeight: 3,
+                      indicatorSize: TabBarIndicatorSize.label,
+                      labelColor: Color(0xFFF5C65D),
+                      unselectedLabelColor: Colors.grey,
 
-                tabs: <Widget>[
-                  Tab(text: 'All'),
-                  Tab(text: 'Folder'),
-                ],
+                      labelStyle: NoteTextStyle.tabActive,
+                      unselectedLabelStyle: NoteTextStyle.tabInactive,
+
+                      tabs: <Widget>[
+                        Tab(text: 'All'),
+                        Tab(text: 'Folder'),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
         ),
-        body: SafeArea(child: Column(children: <Widget>[])),
+        body: SafeArea(
+          child: TabBarView(children: <Widget>[AllNotesView(), FolderView()]),
+        ),
+
+        floatingActionButton: Padding(
+          padding: const EdgeInsets.only(bottom: 30, right: 8),
+          child: FloatingActionButton(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadiusGeometry.circular(80),
+            ),
+            onPressed: () {},
+            child: Icon(Icons.note_add_outlined),
+          ),
+        ),
       ),
     );
+  }
+}
+
+class AllNotesView extends StatelessWidget {
+  const AllNotesView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    if (fakeNotes.isEmpty) {
+      return const Center(child: Text('No Notes Yet'));
+    }
+    return MasonryGridView.count(
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 100),
+      crossAxisCount: 2,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      itemCount: fakeNotes.length,
+      itemBuilder: (context, index) {
+        final note = fakeNotes[index];
+        return NoteCardBuilder(note: note);
+      },
+    );
+  }
+}
+
+class FolderView extends StatelessWidget {
+  const FolderView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(child: Text('Folders'));
   }
 }
