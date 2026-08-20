@@ -4,7 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:notes_app/core/note_colors.dart';
 import 'package:notes_app/core/note_text_style.dart';
+import 'package:notes_app/data/fake_folder.dart';
 import 'package:notes_app/data/fake_notes.dart';
+import 'package:notes_app/features/notes/presentation/pages/create_folder_page.dart';
+import 'package:notes_app/features/notes/presentation/pages/create_note_page.dart';
+import 'package:notes_app/features/notes/presentation/widgets/folder_card_builder.dart';
 import 'package:notes_app/features/notes/presentation/widgets/note_card_builder.dart';
 
 class HomePage extends StatefulWidget {
@@ -14,7 +18,30 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  void onTabChanged() {
+    setState(() {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    _tabController = TabController(length: 2, vsync: this);
+
+    _tabController.addListener(onTabChanged);
+  }
+
+  @override
+  void dispose() {
+    _tabController.removeListener(onTabChanged);
+    _tabController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -69,6 +96,7 @@ class _HomePageState extends State<HomePage> {
                   child: Padding(
                     padding: const EdgeInsets.only(top: 10),
                     child: TabBar(
+                      controller: _tabController,
                       dividerColor: Colors.transparent,
 
                       indicatorColor: Color(0xFFF5C65D),
@@ -93,17 +121,36 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         body: SafeArea(
-          child: TabBarView(children: <Widget>[AllNotesView(), FolderView()]),
+          child: TabBarView(
+            controller: _tabController,
+            children: <Widget>[AllNotesView(), FolderView()],
+          ),
         ),
 
         floatingActionButton: Padding(
           padding: const EdgeInsets.only(bottom: 30, right: 8),
           child: FloatingActionButton(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadiusGeometry.circular(80),
+            shape: const CircleBorder(),
+            onPressed: () {
+              if (_tabController.index == 0) {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const CreateNotePage(),
+                  ),
+                );
+              } else {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const CreateFolderPage(),
+                  ),
+                );
+              }
+            },
+            child: Icon(
+              _tabController.index == 0
+                  ? Icons.note_add_outlined
+                  : Icons.create_new_folder_outlined,
             ),
-            onPressed: () {},
-            child: Icon(Icons.note_add_outlined),
           ),
         ),
       ),
@@ -138,6 +185,22 @@ class FolderView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(child: Text('Folders'));
+    if (fakeFolders.isEmpty) {
+      return const Center(child: Text('No Folders Yet'));
+    }
+    return GridView.builder(
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 100),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 0.95,
+      ),
+      itemCount: fakeFolders.length,
+      itemBuilder: (context, index) {
+        final folder = fakeFolders[index];
+        return FolderCardBuilder(folder: folder);
+      },
+    );
   }
 }
