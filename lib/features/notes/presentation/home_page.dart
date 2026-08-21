@@ -6,8 +6,10 @@ import 'package:notes_app/core/note_colors.dart';
 import 'package:notes_app/core/note_text_style.dart';
 import 'package:notes_app/data/fake_folder.dart';
 import 'package:notes_app/data/fake_notes.dart';
-import 'package:notes_app/features/notes/presentation/pages/create_folder_page.dart';
+import 'package:notes_app/features/notes/presentation/pages/Create_folder_bottom_sheet.dart.dart';
+import 'package:notes_app/features/notes/presentation/pages/about_us_page.dart';
 import 'package:notes_app/features/notes/presentation/pages/create_note_page.dart';
+import 'package:notes_app/features/notes/presentation/pages/feedback_page.dart';
 import 'package:notes_app/features/notes/presentation/widgets/folder_card_builder.dart';
 import 'package:notes_app/features/notes/presentation/widgets/note_card_builder.dart';
 
@@ -76,11 +78,29 @@ class _HomePageState extends State<HomePage>
                 borderRadius: BorderRadius.circular(30),
               ),
               itemBuilder: (context) => [
-                const PopupMenuItem(value: 'profile', child: Text('Profile')),
+                PopupMenuItem(
+                  value: 'feedback',
+                  child: const Text('FeedBack'),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (value) => const FeedbackPage(),
+                      ),
+                    );
+                  },
+                ),
 
-                const PopupMenuItem(value: 'setting', child: Text('Settings')),
-
-                const PopupMenuItem(value: 'logout', child: Text('Logout')),
+                PopupMenuItem(
+                  value: 'about us',
+                  child: Text('About Us'),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (value) => const AboutUsPage(),
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
           ],
@@ -131,7 +151,7 @@ class _HomePageState extends State<HomePage>
           padding: const EdgeInsets.only(bottom: 30, right: 8),
           child: FloatingActionButton(
             shape: const CircleBorder(),
-            onPressed: () {
+            onPressed: () async {
               if (_tabController.index == 0) {
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -139,11 +159,24 @@ class _HomePageState extends State<HomePage>
                   ),
                 );
               } else {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const CreateFolderPage(),
-                  ),
+                final result = await showModalBottomSheet<Map<String, dynamic>>(
+                  context: context,
+                  backgroundColor: Colors.transparent,
+                  isScrollControlled: true,
+                  builder: (_) => const CreateFolderBottomSheet(),
                 );
+
+                if (result != null) {
+                  final String name = result['name'];
+                  final Color color = result['color'];
+
+                  // فعلاً برای تست
+                  print('Folder name: $name');
+                  print('Folder color: $color');
+
+                  // اینجا بعداً فولدر رو به fakeFolders اضافه می‌کنی
+                  // و setState می‌زنی تا Home آپدیت بشه.
+                }
               }
             },
             child: Icon(
