@@ -9,13 +9,10 @@ class FeedbackPage extends StatefulWidget {
 }
 
 class _FeedbackPageState extends State<FeedbackPage> {
-  static const Color _background = Color(0xFF101114);
-  static const Color _cardColor = Color(0xFF1D1F26);
   static const Color _textColor = Color(0xFFF1F1F3);
   static const Color _secondaryText = Color(0xFF9A9BA2);
   static const Color _borderColor = Color(0xFF777A82);
   static const Color _buttonColor = Color(0xFF30343D);
-  static const Color _submitColor = Color(0xFFF5C65D);
 
   final TextEditingController _detailsController = TextEditingController();
 

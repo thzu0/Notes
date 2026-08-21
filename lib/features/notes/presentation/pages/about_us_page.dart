@@ -5,7 +5,7 @@ class AboutUsPage extends StatelessWidget {
   const AboutUsPage({super.key});
 
   static const Color _background = Color(0xFF101114);
-  static const Color _cardColor = Color(0xFF1D1F26);
+
   static const Color _textColor = Color(0xFFF1F1F3);
   static const Color _secondaryText = Color(0xFF9A9BA2);
   static const Color _accentColor = Color(0xFFF5C65D);
