@@ -5,7 +5,8 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:notes_app/core/note_colors.dart';
 import 'package:notes_app/core/note_text_style.dart';
 import 'package:notes_app/data/fake_folder.dart';
-import 'package:notes_app/data/fake_notes.dart';
+
+import 'package:notes_app/features/notes/model/model.dart';
 import 'package:notes_app/features/notes/presentation/pages/Create_folder_bottom_sheet.dart.dart';
 import 'package:notes_app/features/notes/presentation/pages/about_us_page.dart';
 import 'package:notes_app/features/notes/presentation/pages/create_note_page.dart';
@@ -22,6 +23,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
+  final List<Note> notes = [];
   late TabController _tabController;
 
   void onTabChanged() {
@@ -44,14 +46,85 @@ class _HomePageState extends State<HomePage>
     super.dispose();
   }
 
+  void _updateReminderItem(String noteId, int itemIndex, bool value) {
+    final noteIndex = notes.indexWhere((note) => note.id == noteId);
+
+    if (noteIndex == -1) return;
+
+    final note = notes[noteIndex];
+
+    final items = List<ChecklistItem>.from(note.checklistitems ?? []);
+
+    if (itemIndex >= items.length) return;
+
+    items[itemIndex] = ChecklistItem(
+      title: items[itemIndex].title,
+      isDone: value,
+    );
+
+    setState(() {
+      notes[noteIndex] = Note(
+        id: note.id,
+        title: note.title,
+        content: note.content,
+        type: note.type,
+        folderld: note.folderld,
+        createdAt: note.createdAt,
+        imageUrl: note.imageUrl,
+        checklistitems: items,
+        reminderTime: note.reminderTime,
+        blocks: note.blocks,
+      );
+    });
+  }
+
+  // برای نوت‌های آزاد (بلاک‌محور): وقتی کاربر روی یه آیتم
+  // چک‌لیستِ داخل note.blocks تپ می‌کنه.
+  void _updateBlockChecklistItem(String noteId, int blockIndex, bool value) {
+    final noteIndex = notes.indexWhere((note) => note.id == noteId);
+
+    if (noteIndex == -1) return;
+
+    final note = notes[noteIndex];
+
+    final blocks = List<NoteBlock>.from(note.blocks);
+
+    if (blockIndex >= blocks.length) return;
+
+    final block = blocks[blockIndex];
+
+    blocks[blockIndex] = NoteBlock(
+      type: block.type,
+      text: block.text,
+      isDone: value,
+      imageUrl: block.imageUrl,
+      quoteAuthor: block.quoteAuthor,
+    );
+
+    setState(() {
+      notes[noteIndex] = Note(
+        id: note.id,
+        title: note.title,
+        content: note.content,
+        type: note.type,
+        folderld: note.folderld,
+        createdAt: note.createdAt,
+        imageUrl: note.imageUrl,
+        checklistitems: note.checklistitems,
+        reminderTime: note.reminderTime,
+        blocks: blocks,
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
+        backgroundColor: AppColors.background,
         appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
+          backgroundColor: AppColors.background,
           elevation: 0,
           automaticallyImplyLeading: false,
           title: const Text('Notes'),
@@ -143,7 +216,14 @@ class _HomePageState extends State<HomePage>
         body: SafeArea(
           child: TabBarView(
             controller: _tabController,
-            children: <Widget>[AllNotesView(), FolderView()],
+            children: <Widget>[
+              AllNotesView(
+                notes: notes,
+                onReminderItemChanged: _updateReminderItem,
+                onBlockChecklistChanged: _updateBlockChecklistItem,
+              ),
+              FolderView(),
+            ],
           ),
         ),
 
@@ -153,11 +233,16 @@ class _HomePageState extends State<HomePage>
             shape: const CircleBorder(),
             onPressed: () async {
               if (_tabController.index == 0) {
-                Navigator.of(context).push(
+                final Note? newNote = await Navigator.of(context).push<Note>(
                   MaterialPageRoute(
                     builder: (context) => const CreateNotePage(),
                   ),
                 );
+                if (newNote != null) {
+                  setState(() {
+                    notes.add(newNote);
+                  });
+                }
               } else {
                 final result = await showModalBottomSheet<Map<String, dynamic>>(
                   context: context,
@@ -192,11 +277,22 @@ class _HomePageState extends State<HomePage>
 }
 
 class AllNotesView extends StatelessWidget {
-  const AllNotesView({super.key});
+  final List<Note> notes;
+  final void Function(String noteId, int itemIndex, bool value)?
+  onReminderItemChanged;
+  final void Function(String noteId, int blockIndex, bool value)?
+  onBlockChecklistChanged;
+
+  const AllNotesView({
+    super.key,
+    required this.notes,
+    this.onReminderItemChanged,
+    this.onBlockChecklistChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
-    if (fakeNotes.isEmpty) {
+    if (notes.isEmpty) {
       return const Center(child: Text('No Notes Yet'));
     }
     return MasonryGridView.count(
@@ -204,10 +300,18 @@ class AllNotesView extends StatelessWidget {
       crossAxisCount: 2,
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
-      itemCount: fakeNotes.length,
+      itemCount: notes.length,
       itemBuilder: (context, index) {
-        final note = fakeNotes[index];
-        return NoteCardBuilder(note: note);
+        final note = notes[index];
+        return NoteCardBuilder(
+          note: note,
+          onReminderItemChanged: (itemIndex, value) {
+            onReminderItemChanged?.call(note.id, itemIndex, value);
+          },
+          onBlockChecklistChanged: (blockIndex, value) {
+            onBlockChecklistChanged?.call(note.id, blockIndex, value);
+          },
+        );
       },
     );
   }

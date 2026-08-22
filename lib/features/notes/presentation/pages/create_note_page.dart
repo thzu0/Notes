@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:notes_app/core/note_colors.dart';
 import 'package:notes_app/core/note_text_style.dart';
+import 'package:notes_app/features/notes/model/model.dart';
+import 'package:notes_app/features/notes/presentation/pages/free_note_editor.dart';
 import 'package:notes_app/features/notes/presentation/widgets/format_bottom_sheet.dart';
 
-/// صفحه‌ای که با کلیک روی FAB باز میشه.
-/// آیکون‌های بالای اپ‌بار (بازگشت، پین، اشتراک‌گذاری، سه‌نقطه) عمداً خالی گذاشته شدن
-/// چون قراره خودت اضافه‌شون کنی.
+/// صفحه ساخت Note.
+///
+/// Reminder ساختار اختصاصی خودش را دارد:
+/// - Task
+/// - Reminder Time
+///
+/// بقیه Tagها از FreeNoteEditor استفاده می‌کنند و می‌توانند
+/// چند نوع Block مختلف مثل Text / Checklist / Quote / Image داشته باشند.
 class CreateNotePage extends StatefulWidget {
   const CreateNotePage({super.key});
 
@@ -17,8 +24,27 @@ class _CreateNotePageState extends State<CreateNotePage> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
 
-  // فقط برای نمایش، بعداً می‌تونی از یه enum/مدل واقعی برای دسته‌بندی استفاده کنی
-  String _category = 'reminder';
+  NoteType selectedType = NoteType.text;
+
+  // -----------------------------
+  // Reminder
+  // -----------------------------
+
+  final List<ChecklistItem> _reminderItems = [];
+  final TextEditingController _reminderController = TextEditingController();
+
+  DateTime? _reminderTime;
+
+  // -----------------------------
+  // Free Note Editor
+  // -----------------------------
+
+  List<NoteBlock> _noteBlocks = [];
+
+  // -----------------------------
+  // UI
+  // -----------------------------
+
   final Color _categoryColor = const Color(0xFFF5A623);
 
   static const Color _hintColor = Color(0xFF6B7280);
@@ -29,42 +55,249 @@ class _CreateNotePageState extends State<CreateNotePage> {
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
+    _reminderController.dispose();
     super.dispose();
   }
 
   String get _formattedEditedDate {
     final now = DateTime.now();
+
     final month = now.month.toString().padLeft(2, '0');
     final day = now.day.toString().padLeft(2, '0');
+
     int hour12 = now.hour % 12;
-    if (hour12 == 0) hour12 = 12;
+
+    if (hour12 == 0) {
+      hour12 = 12;
+    }
+
     final minute = now.minute.toString().padLeft(2, '0');
     final period = now.hour >= 12 ? 'PM' : 'AM';
+
     return '$month-$day $hour12:$minute $period';
   }
 
+  // ============================================================
+  // REMINDER
+  // ============================================================
+
+  Widget _buildReminderEditor(double keyboardHeight) {
+    return Column(
+      children: <Widget>[
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: _reminderItems.length,
+            itemBuilder: (context, index) {
+              final item = _reminderItems[index];
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  children: <Widget>[
+                    Icon(
+                      item.isDone ? Icons.check_circle : Icons.circle_outlined,
+                      color: _textColor,
+                      size: 22,
+                    ),
+
+                    const SizedBox(width: 10),
+
+                    Expanded(
+                      child: Text(
+                        item.title,
+                        style: const TextStyle(color: _textColor, fontSize: 16),
+                      ),
+                    ),
+
+                    IconButton(
+                      onPressed: () {
+                        setState(() {
+                          _reminderItems.removeAt(index);
+                        });
+                      },
+                      icon: const Icon(
+                        Icons.close,
+                        color: _hintColor,
+                        size: 20,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+
+        // ردیف افزودن آیتم؛ چون resizeToAvoidBottomInset روی این
+        // Scaffold غیرفعاله، با AnimatedPadding دستی این ردیف رو
+        // بالای کیبورد نگه می‌داریم تا زیرش قایم نشه.
+        AnimatedPadding(
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.only(
+            bottom: keyboardHeight > 0
+                ? keyboardHeight
+                : MediaQuery.of(context).padding.bottom,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: TextField(
+                    controller: _reminderController,
+                    style: const TextStyle(color: _textColor, fontSize: 16),
+                    decoration: const InputDecoration(
+                      hintText: 'Add Item...',
+                      hintStyle: TextStyle(color: _hintColor),
+                      border: InputBorder.none,
+                    ),
+                    onSubmitted: (_) => _addReminderItem(),
+                  ),
+                ),
+
+                IconButton(
+                  onPressed: _addReminderItem,
+                  icon: const Icon(Icons.add_circle_outline, color: _textColor),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _addReminderItem() {
+    final text = _reminderController.text.trim();
+
+    if (text.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      _reminderItems.add(ChecklistItem(title: text, isDone: false));
+    });
+
+    _reminderController.clear();
+  }
+
+  Future<void> _pickReminderTime() async {
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+
+    if (time == null) {
+      return;
+    }
+
+    final now = DateTime.now();
+
+    setState(() {
+      _reminderTime = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        time.hour,
+        time.minute,
+      );
+    });
+  }
+
+  Widget _buildReminderTimePicker() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: <Widget>[
+          const Icon(
+            Icons.notifications_none_outlined,
+            color: _textColor,
+            size: 22,
+          ),
+
+          const SizedBox(width: 10),
+
+          Expanded(
+            child: Text(
+              _reminderTime == null
+                  ? 'Set reminder time'
+                  : 'Reminder at ${TimeOfDay.fromDateTime(_reminderTime!).format(context)}',
+              style: const TextStyle(color: _textColor, fontSize: 15),
+            ),
+          ),
+
+          TextButton(
+            onPressed: _pickReminderTime,
+            child: Text(
+              _reminderTime == null ? 'Set' : 'Change',
+              style: const TextStyle(color: Color(0xFFF5C65D)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
+
   @override
   Widget build(BuildContext context) {
-    // ارتفاع فعلی کیبورد (وقتی بسته‌ست صفره)
     final double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
     return Scaffold(
-      // چون تو edge-to-edge اندروید 15 رفتار خودکار Scaffold برای جابجایی
-      // bottomNavigationBar همیشه درست کار نمی‌کنه، این رو false می‌ذاریم
-      // و خودمون دستی با keyboardHeight پایین‌تر مدیریتش می‌کنیم
       resizeToAvoidBottomInset: false,
       backgroundColor: AppColors.darkCardBackground,
+
       appBar: AppBar(
         backgroundColor: AppColors.darkCardBackground,
         elevation: 0,
         toolbarHeight: 56,
 
-        // TODO: آیکون‌های بازگشت / پین / اشتراک‌گذاری / سه‌نقطه رو خودت اینجا اضافه کن
         title: const Text('New Note', style: NoteTextStyle.headingTitleApp),
+
         actions: <Widget>[
-          IconButton(onPressed: () {}, icon: Icon(Icons.edit_note)),
+          IconButton(onPressed: () {}, icon: const Icon(Icons.edit_note)),
+
           TextButton(
-            onPressed: () {},
+            onPressed: () {
+              final note = Note(
+                id: DateTime.now().microsecondsSinceEpoch.toString(),
+
+                title: _titleController.text.trim(),
+
+                // Reminder فعلاً از content استفاده می‌کند
+                // و بقیه Noteها از blocks.
+                content: _contentController.text.trim(),
+
+                type: selectedType,
+
+                createdAt: DateTime.now(),
+
+                imageUrl: null,
+
+                // فقط Reminder
+                checklistitems: selectedType == NoteType.reminder
+                    ? List<ChecklistItem>.from(_reminderItems)
+                    : null,
+
+                // فقط Reminder
+                reminderTime: selectedType == NoteType.reminder
+                    ? _reminderTime
+                    : null,
+
+                // فقط Noteهای آزاد
+                blocks: selectedType == NoteType.reminder
+                    ? const []
+                    : List<NoteBlock>.from(_noteBlocks),
+              );
+
+              Navigator.pop(context, note);
+            },
+
             child: const Text(
               'Save',
               style: TextStyle(fontSize: 17, color: Colors.white),
@@ -72,128 +305,95 @@ class _CreateNotePageState extends State<CreateNotePage> {
           ),
         ],
       ),
+
       body: SafeArea(
-        // پایین رو خودمون با AnimatedPadding پایین‌تر مدیریت می‌کنیم
         bottom: false,
         child: Column(
-          children: [
+          children: <Widget>[
+            // -----------------------------------------------
+            // Date + Category
+            // -----------------------------------------------
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+
               child: Row(
-                children: [
+                children: <Widget>[
                   Text(
                     'Edited: $_formattedEditedDate',
                     style: const TextStyle(color: _hintColor, fontSize: 13),
                   ),
+
                   const Spacer(),
+
                   _CategoryDropdown(
-                    value: _category,
+                    value: selectedType,
                     dotColor: _categoryColor,
-                    items: const [
-                      'reminder',
-                      'quote',
-                      'diary',
-                      'target',
-                      'text',
-                      'image',
-                      'checklist',
-                    ],
+                    items: NoteType.values,
+
                     onChanged: (newValue) {
-                      if (newValue == null) return;
-                      setState(() => _category = newValue);
+                      if (newValue == null) {
+                        return;
+                      }
+
+                      setState(() {
+                        selectedType = newValue;
+                      });
                     },
                   ),
                 ],
               ),
             ),
+
+            // -----------------------------------------------
+            // Title
+            // -----------------------------------------------
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+
               child: TextField(
                 controller: _titleController,
+
                 style: const TextStyle(
                   color: _textColor,
                   fontSize: 22,
                   fontWeight: FontWeight.w500,
                 ),
+
                 decoration: const InputDecoration(
                   hintText: 'Title',
+
                   hintStyle: TextStyle(color: _hintColor, fontSize: 22),
+
                   border: InputBorder.none,
                 ),
               ),
             ),
+
+            // -----------------------------------------------
+            // Reminder Time
+            // -----------------------------------------------
+            if (selectedType == NoteType.reminder) _buildReminderTimePicker(),
+
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
               child: Divider(color: _dividerColor, height: 24, thickness: 1),
             ),
+
+            // -----------------------------------------------
+            // Main Editor
+            // -----------------------------------------------
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: TextField(
-                  controller: _contentController,
-                  maxLines: null,
-                  expands: true,
-                  textAlignVertical: TextAlignVertical.top,
-                  style: const TextStyle(color: _textColor, fontSize: 16),
-                  decoration: const InputDecoration(
-                    hintText: 'Please enter content here...',
-                    hintStyle: TextStyle(color: _hintColor, fontSize: 16),
-                    border: InputBorder.none,
-                  ),
-                ),
-              ),
-            ),
-            // نوار پایین دیگه bottomNavigationBar نیست؛ داخل خودِ body ِه
-            // AnimatedPadding با تغییر keyboardHeight خودش به‌آرومی بالا/پایین میره
-            AnimatedPadding(
-              duration: const Duration(milliseconds: 100),
-              curve: Curves.easeOut,
-              padding: EdgeInsets.only(
-                bottom: keyboardHeight > 0
-                    ? keyboardHeight
-                    : MediaQuery.of(context).padding.bottom,
-              ),
-              child: Container(
-                height: 56,
-                color: AppColors.darkCardBackground,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(
-                        Icons.add_photo_alternate_outlined,
-                        color: _textColor,
-                      ),
-                      onPressed: () {
-                        // TODO: افزودن تصویر
+              child: selectedType == NoteType.reminder
+                  ? _buildReminderEditor(keyboardHeight)
+                  : FreeNoteEditor(
+                      initialBlocks: _noteBlocks,
+
+                      onChanged: (blocks) {
+                        setState(() {
+                          _noteBlocks = List<NoteBlock>.from(blocks);
+                        });
                       },
                     ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.text_fields_rounded,
-                        color: _textColor,
-                      ),
-                      onPressed: () {
-                        showModalBottomSheet(
-                          context: context,
-                          backgroundColor: Colors.transparent,
-                          isScrollControlled: true,
-                          builder: (_) => const FormatBottomSheet(),
-                        );
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.palette_outlined,
-                        color: _textColor,
-                      ),
-                      onPressed: () {
-                        // TODO: انتخاب رنگ/تم یادداشت
-                      },
-                    ),
-                  ],
-                ),
-              ),
             ),
           ],
         ),
@@ -202,13 +402,15 @@ class _CreateNotePageState extends State<CreateNotePage> {
   }
 }
 
-/// دراپ‌دان واقعی برای انتخاب دسته‌بندی یادداشت.
-/// هر آیتم یک نقطه‌ی رنگی + متن داره (مشابه چیزی که توی تصویر بود).
+// ============================================================
+// CATEGORY DROPDOWN
+// ============================================================
+
 class _CategoryDropdown extends StatelessWidget {
-  final String value;
+  final NoteType value;
   final Color dotColor;
-  final List<String> items;
-  final ValueChanged<String?> onChanged;
+  final List<NoteType> items;
+  final ValueChanged<NoteType?> onChanged;
 
   const _CategoryDropdown({
     required this.value,
@@ -220,33 +422,40 @@ class _CategoryDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DropdownButtonHideUnderline(
-      child: DropdownButton<String>(
+      child: DropdownButton<NoteType>(
         value: value,
         onChanged: onChanged,
+
         dropdownColor: const Color(0xFF1A1B20),
+
         borderRadius: BorderRadius.circular(10),
+
         icon: const Icon(
           Icons.keyboard_arrow_down,
           color: Color(0xFF6B7280),
           size: 18,
         ),
-        // چیزی که وقتی دراپ‌دان بسته‌ست نشون داده میشه (نقطه رنگی + متن انتخاب‌شده)
+
         selectedItemBuilder: (context) {
           return items.map((item) {
             return Row(
               mainAxisSize: MainAxisSize.min,
-              children: [
+              children: <Widget>[
                 Container(
                   width: 8,
                   height: 8,
+
                   decoration: BoxDecoration(
                     color: dotColor,
                     shape: BoxShape.circle,
                   ),
                 ),
+
                 const SizedBox(width: 6),
+
                 Text(
-                  item,
+                  item.name,
+
                   style: const TextStyle(
                     color: Color(0xFFE5E7EB),
                     fontSize: 14,
@@ -257,24 +466,29 @@ class _CategoryDropdown extends StatelessWidget {
             );
           }).toList();
         },
-        // آیتم‌های داخل منوی باز شده
+
         items: items.map((item) {
-          return DropdownMenuItem<String>(
+          return DropdownMenuItem<NoteType>(
             value: item,
+
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: [
+              children: <Widget>[
                 Container(
                   width: 8,
                   height: 8,
+
                   decoration: BoxDecoration(
                     color: dotColor,
                     shape: BoxShape.circle,
                   ),
                 ),
+
                 const SizedBox(width: 8),
+
                 Text(
-                  item,
+                  item.name,
+
                   style: const TextStyle(
                     color: Color(0xFFE5E7EB),
                     fontSize: 14,

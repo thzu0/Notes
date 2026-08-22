@@ -9,6 +9,8 @@ class Note {
   final DateTime createdAt;
   final String? imageUrl;
   final List<ChecklistItem>? checklistitems;
+  final DateTime? reminderTime;
+  final List<NoteBlock> blocks;
 
   const Note({
     required this.id,
@@ -18,10 +20,11 @@ class Note {
     this.folderld,
     required this.createdAt,
     required this.imageUrl,
-    required List<ChecklistItem> checklistItems,
-    List<ChecklistItem>? checklistitems, // پارامتر قدیمی، اختیاری شد
-  }) : checklistitems =
-           checklistItems; // همیشه دیتای واقعی (checklistItems) ذخیره میشه
+
+    this.checklistitems,
+    this.reminderTime,
+    this.blocks = const [],
+  });
 }
 
 class ChecklistItem {
@@ -29,4 +32,23 @@ class ChecklistItem {
   final bool isDone;
 
   const ChecklistItem({required this.title, this.isDone = false});
+}
+
+enum NoteBlockType { text, checklist, image, quote }
+
+class NoteBlock {
+  final NoteBlockType type;
+
+  final String? text;
+  final bool? isDone;
+  final String? imageUrl;
+  final String? quoteAuthor;
+
+  const NoteBlock({
+    required this.type,
+    this.text,
+    this.isDone,
+    this.imageUrl,
+    this.quoteAuthor,
+  });
 }
