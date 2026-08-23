@@ -14,10 +14,10 @@ class FreeNoteEditor extends StatefulWidget {
   });
 
   @override
-  State<FreeNoteEditor> createState() => _FreeNoteEditorState();
+  State<FreeNoteEditor> createState() => FreeNoteEditorState();
 }
 
-class _FreeNoteEditorState extends State<FreeNoteEditor> {
+class FreeNoteEditorState extends State<FreeNoteEditor> {
   late List<NoteBlock> _blocks;
 
   // یه Key ثابت به‌ازای هر بلاک، جدا از خودِ NoteBlock.
@@ -27,6 +27,11 @@ class _FreeNoteEditorState extends State<FreeNoteEditor> {
   final List<Key> _blockKeys = [];
 
   final TextEditingController _textController = TextEditingController();
+
+  // استایل فرمتی که از FormatBottomSheet انتخاب شده و روی متنی که
+  // الان داره توی تکست‌فیلد پایین نوشته می‌شه (و بلاک بعدی که ساخته
+  // می‌شه) اعمال می‌شه.
+  TextFormatStyle _composingStyle = const TextFormatStyle();
 
   @override
   void initState() {
@@ -51,12 +56,26 @@ class _FreeNoteEditorState extends State<FreeNoteEditor> {
     if (text.isEmpty) return;
 
     setState(() {
-      _blocks.add(NoteBlock(type: NoteBlockType.text, text: text));
+      _blocks.add(
+        NoteBlock(
+          type: NoteBlockType.text,
+          text: text,
+          format: _composingStyle,
+        ),
+      );
       _blockKeys.add(UniqueKey());
     });
 
     _textController.clear();
     _notifyChanged();
+  }
+
+  /// اگه توی تکست‌فیلد پایین (Write something...) متنی نوشته شده باشه
+  /// ولی هنوز Enter/Add نزده باشه، این متد اون رو به یه Block تبدیل
+  /// می‌کنه. باید قبل از Save توسط CreateNotePage صدا زده بشه، وگرنه
+  /// اون متن گم می‌شه.
+  void flushPendingText() {
+    _addTextBlock();
   }
 
   void _addChecklistBlock() {
@@ -138,9 +157,64 @@ class _FreeNoteEditorState extends State<FreeNoteEditor> {
     _notifyChanged();
   }
 
+  // تبدیل TextFormatStyle به TextStyle واقعی فلاتر، هم برای پیش‌نمایش
+  // زنده‌ی تکست‌فیلد در حال تایپ و هم برای بلاک متنی نهایی.
+  TextStyle _textStyleFor(TextFormatStyle format) {
+    double baseFontSize;
+    FontWeight baseWeight;
+
+    switch (format.heading) {
+      case HeadingType.heading1:
+        baseFontSize = 22;
+        baseWeight = FontWeight.w700;
+        break;
+      case HeadingType.heading2:
+        baseFontSize = 18;
+        baseWeight = FontWeight.w600;
+        break;
+      case HeadingType.none:
+        baseFontSize = 16;
+        baseWeight = FontWeight.w400;
+        break;
+    }
+
+    return TextStyle(
+      color: format.textColor,
+      backgroundColor: format.highlightColor,
+      fontSize: baseFontSize,
+      fontWeight: format.isBold ? FontWeight.w700 : baseWeight,
+      fontStyle: format.isItalic ? FontStyle.italic : FontStyle.normal,
+      decoration: format.isUnderline
+          ? TextDecoration.underline
+          : TextDecoration.none,
+    );
+  }
+
+  // برای حالت بولت/شماره‌دار، چون هر بلاک متنی مستقل ذخیره می‌شه،
+  // فقط یه پیشوند ساده جلوی متن اضافه می‌کنیم.
+  String _listPrefixFor(TextFormatStyle format) {
+    if (format.isBulletList) return '•  ';
+    if (format.isNumberedList) return '1.  ';
+    return '';
+  }
+
+  void _openFormatSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => FormatBottomSheet(
+        initialStyle: _composingStyle,
+        onChanged: (style) => setState(() => _composingStyle = style),
+      ),
+    );
+  }
+
   Widget _buildBlock(NoteBlock block, int index) {
     switch (block.type) {
       case NoteBlockType.text:
+        final format = block.format ?? const TextFormatStyle();
+
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Row(
@@ -148,8 +222,8 @@ class _FreeNoteEditorState extends State<FreeNoteEditor> {
             children: [
               Expanded(
                 child: Text(
-                  block.text ?? '',
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                  '${_listPrefixFor(format)}${block.text ?? ''}',
+                  style: _textStyleFor(format),
                 ),
               ),
               IconButton(
@@ -223,7 +297,7 @@ class _FreeNoteEditorState extends State<FreeNoteEditor> {
                 controller: _textController,
                 minLines: 3,
                 maxLines: null,
-                style: const TextStyle(color: Colors.white, fontSize: 16),
+                style: _textStyleFor(_composingStyle),
                 decoration: const InputDecoration(
                   hintText: 'Write something...',
                   hintStyle: TextStyle(color: Colors.grey),
@@ -291,14 +365,7 @@ class _FreeNoteEditorState extends State<FreeNoteEditor> {
                 ),
 
                 IconButton(
-                  onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      backgroundColor: Colors.transparent,
-                      isScrollControlled: true,
-                      builder: (_) => const FormatBottomSheet(),
-                    );
-                  },
+                  onPressed: _openFormatSheet,
                   padding: EdgeInsets.zero,
                   icon: const Icon(
                     Icons.text_fields_rounded,

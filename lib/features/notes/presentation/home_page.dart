@@ -117,6 +117,26 @@ class _HomePageState extends State<HomePage>
     });
   }
 
+  // با تپ روی یه کارت، صفحه ادیت با نوت موجود باز می‌شه
+  // و در برگشت، همون نوت (با همون id) در لیست جایگزین می‌شه.
+  Future<void> _editNote(Note note) async {
+    final Note? updatedNote = await Navigator.of(context).push<Note>(
+      MaterialPageRoute(
+        builder: (context) => CreateNotePage(existingNote: note),
+      ),
+    );
+
+    if (updatedNote == null) return;
+
+    final noteIndex = notes.indexWhere((n) => n.id == note.id);
+
+    if (noteIndex == -1) return;
+
+    setState(() {
+      notes[noteIndex] = updatedNote;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -129,10 +149,6 @@ class _HomePageState extends State<HomePage>
           automaticallyImplyLeading: false,
           title: const Text('Notes'),
           actions: <Widget>[
-            TextButton(
-              onPressed: () {},
-              child: const Text('Edit', style: NoteTextStyle.tabInactive),
-            ),
             IconButton(
               padding: EdgeInsets.zero,
 
@@ -221,6 +237,7 @@ class _HomePageState extends State<HomePage>
                 notes: notes,
                 onReminderItemChanged: _updateReminderItem,
                 onBlockChecklistChanged: _updateBlockChecklistItem,
+                onNoteTap: _editNote,
               ),
               FolderView(),
             ],
@@ -282,12 +299,14 @@ class AllNotesView extends StatelessWidget {
   onReminderItemChanged;
   final void Function(String noteId, int blockIndex, bool value)?
   onBlockChecklistChanged;
+  final void Function(Note note)? onNoteTap;
 
   const AllNotesView({
     super.key,
     required this.notes,
     this.onReminderItemChanged,
     this.onBlockChecklistChanged,
+    this.onNoteTap,
   });
 
   @override
@@ -303,14 +322,17 @@ class AllNotesView extends StatelessWidget {
       itemCount: notes.length,
       itemBuilder: (context, index) {
         final note = notes[index];
-        return NoteCardBuilder(
-          note: note,
-          onReminderItemChanged: (itemIndex, value) {
-            onReminderItemChanged?.call(note.id, itemIndex, value);
-          },
-          onBlockChecklistChanged: (blockIndex, value) {
-            onBlockChecklistChanged?.call(note.id, blockIndex, value);
-          },
+        return GestureDetector(
+          onTap: () => onNoteTap?.call(note),
+          child: NoteCardBuilder(
+            note: note,
+            onReminderItemChanged: (itemIndex, value) {
+              onReminderItemChanged?.call(note.id, itemIndex, value);
+            },
+            onBlockChecklistChanged: (blockIndex, value) {
+              onBlockChecklistChanged?.call(note.id, blockIndex, value);
+            },
+          ),
         );
       },
     );

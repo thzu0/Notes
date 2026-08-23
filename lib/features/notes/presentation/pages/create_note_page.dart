@@ -5,7 +5,10 @@ import 'package:notes_app/features/notes/model/model.dart';
 import 'package:notes_app/features/notes/presentation/pages/free_note_editor.dart';
 import 'package:notes_app/features/notes/presentation/widgets/format_bottom_sheet.dart';
 
-/// صفحه ساخت Note.
+/// صفحه ساخت / ویرایش Note.
+///
+/// اگر existingNote پاس داده بشه، صفحه در حالت ویرایش باز می‌شه:
+/// همه فیلدها از روی نوت موجود پر می‌شن و در Save همون id حفظ می‌شه.
 ///
 /// Reminder ساختار اختصاصی خودش را دارد:
 /// - Task
@@ -14,7 +17,11 @@ import 'package:notes_app/features/notes/presentation/widgets/format_bottom_shee
 /// بقیه Tagها از FreeNoteEditor استفاده می‌کنند و می‌توانند
 /// چند نوع Block مختلف مثل Text / Checklist / Quote / Image داشته باشند.
 class CreateNotePage extends StatefulWidget {
-  const CreateNotePage({super.key});
+  final Note? existingNote;
+
+  const CreateNotePage({super.key, this.existingNote});
+
+  bool get isEditing => existingNote != null;
 
   @override
   State<CreateNotePage> createState() => _CreateNotePageState();
@@ -40,6 +47,8 @@ class _CreateNotePageState extends State<CreateNotePage> {
   // -----------------------------
 
   List<NoteBlock> _noteBlocks = [];
+  final GlobalKey<FreeNoteEditorState> _editorKey =
+      GlobalKey<FreeNoteEditorState>();
 
   // -----------------------------
   // UI
@@ -50,6 +59,26 @@ class _CreateNotePageState extends State<CreateNotePage> {
   static const Color _hintColor = Color(0xFF6B7280);
   static const Color _textColor = Color(0xFFE5E7EB);
   static const Color _dividerColor = Color(0xFF23252B);
+
+  @override
+  void initState() {
+    super.initState();
+
+    final existing = widget.existingNote;
+
+    if (existing != null) {
+      _titleController.text = existing.title;
+      _contentController.text = existing.content;
+      selectedType = existing.type;
+
+      if (existing.checklistitems != null) {
+        _reminderItems.addAll(existing.checklistitems!);
+      }
+
+      _reminderTime = existing.reminderTime;
+      _noteBlocks = List<NoteBlock>.from(existing.blocks);
+    }
+  }
 
   @override
   void dispose() {
@@ -186,7 +215,9 @@ class _CreateNotePageState extends State<CreateNotePage> {
   Future<void> _pickReminderTime() async {
     final time = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.now(),
+      initialTime: _reminderTime != null
+          ? TimeOfDay.fromDateTime(_reminderTime!)
+          : TimeOfDay.now(),
     );
 
     if (time == null) {
@@ -241,6 +272,53 @@ class _CreateNotePageState extends State<CreateNotePage> {
   }
 
   // ============================================================
+  // SAVE
+  // ============================================================
+
+  void _saveNote() {
+    // اگه کاربر توی تکست‌فیلد آزاد چیزی نوشته ولی هنوز Enter نزده،
+    // اول اون رو تبدیل به Block می‌کنیم تا موقع Save گم نشه.
+    if (selectedType != NoteType.reminder) {
+      _editorKey.currentState?.flushPendingText();
+    }
+
+    final existing = widget.existingNote;
+
+    final note = Note(
+      id: existing?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
+
+      title: _titleController.text.trim(),
+
+      // Reminder فعلاً از content استفاده می‌کند
+      // و بقیه Noteها از blocks.
+      content: _contentController.text.trim(),
+
+      type: selectedType,
+
+      folderld: existing?.folderld,
+
+      createdAt: existing?.createdAt ?? DateTime.now(),
+
+      imageUrl: existing?.imageUrl,
+
+      // فقط Reminder
+      checklistitems: selectedType == NoteType.reminder
+          ? List<ChecklistItem>.from(_reminderItems)
+          : null,
+
+      // فقط Reminder
+      reminderTime: selectedType == NoteType.reminder ? _reminderTime : null,
+
+      // فقط Noteهای آزاد
+      blocks: selectedType == NoteType.reminder
+          ? const []
+          : List<NoteBlock>.from(_noteBlocks),
+    );
+
+    Navigator.pop(context, note);
+  }
+
+  // ============================================================
   // BUILD
   // ============================================================
 
@@ -257,46 +335,9 @@ class _CreateNotePageState extends State<CreateNotePage> {
         elevation: 0,
         toolbarHeight: 56,
 
-        title: const Text('New Note', style: NoteTextStyle.headingTitleApp),
-
         actions: <Widget>[
-          IconButton(onPressed: () {}, icon: const Icon(Icons.edit_note)),
-
           TextButton(
-            onPressed: () {
-              final note = Note(
-                id: DateTime.now().microsecondsSinceEpoch.toString(),
-
-                title: _titleController.text.trim(),
-
-                // Reminder فعلاً از content استفاده می‌کند
-                // و بقیه Noteها از blocks.
-                content: _contentController.text.trim(),
-
-                type: selectedType,
-
-                createdAt: DateTime.now(),
-
-                imageUrl: null,
-
-                // فقط Reminder
-                checklistitems: selectedType == NoteType.reminder
-                    ? List<ChecklistItem>.from(_reminderItems)
-                    : null,
-
-                // فقط Reminder
-                reminderTime: selectedType == NoteType.reminder
-                    ? _reminderTime
-                    : null,
-
-                // فقط Noteهای آزاد
-                blocks: selectedType == NoteType.reminder
-                    ? const []
-                    : List<NoteBlock>.from(_noteBlocks),
-              );
-
-              Navigator.pop(context, note);
-            },
+            onPressed: _saveNote,
 
             child: const Text(
               'Save',
@@ -386,6 +427,7 @@ class _CreateNotePageState extends State<CreateNotePage> {
               child: selectedType == NoteType.reminder
                   ? _buildReminderEditor(keyboardHeight)
                   : FreeNoteEditor(
+                      key: _editorKey,
                       initialBlocks: _noteBlocks,
 
                       onChanged: (blocks) {

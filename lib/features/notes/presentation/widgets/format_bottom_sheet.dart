@@ -1,22 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:notes_app/features/notes/model/model.dart';
 
 /// بات‌شیت فرمت‌بندی متن که با زدن آیکون "Aa" باز میشه.
+///
+/// هر تغییری که کاربر بده (heading، بولد/ایتالیک/آندرلاین، لیست،
+/// رنگ متن، رنگ هایلایت) فوراً از طریق onChanged به بیرون گزارش
+/// می‌شه، بدون نیاز به دکمه‌ی "Apply" یا وابستگی به نحوه‌ی بسته‌شدن شیت.
 ///
 /// استفاده:
 /// showModalBottomSheet(
 ///   context: context,
 ///   backgroundColor: Colors.transparent,
 ///   isScrollControlled: true,
-///   builder: (_) => const FormatBottomSheet(),
+///   builder: (_) => FormatBottomSheet(
+///     initialStyle: currentStyle,
+///     onChanged: (style) => setState(() => currentStyle = style),
+///   ),
 /// );
 class FormatBottomSheet extends StatefulWidget {
-  const FormatBottomSheet({super.key});
+  final TextFormatStyle initialStyle;
+  final ValueChanged<TextFormatStyle> onChanged;
+
+  const FormatBottomSheet({
+    super.key,
+    this.initialStyle = const TextFormatStyle(),
+    required this.onChanged,
+  });
 
   @override
   State<FormatBottomSheet> createState() => _FormatBottomSheetState();
 }
-
-enum _TextStyleType { heading1, heading2, txt }
 
 class _FormatBottomSheetState extends State<FormatBottomSheet> {
   static const Color _sheetBg = Color(0xFF1C1E24);
@@ -24,12 +37,14 @@ class _FormatBottomSheetState extends State<FormatBottomSheet> {
   static const Color _textColor = Color(0xFFE5E7EB);
   static const Color _mutedColor = Color(0xFF9AA0A6);
 
-  _TextStyleType _selectedStyle = _TextStyleType.txt;
-  bool _isBold = false;
-  bool _isItalic = false;
-  bool _isUnderline = false;
-  bool _isBulletList = false;
-  bool _isNumberedList = false;
+  late HeadingType _selectedHeading;
+  late bool _isBold;
+  late bool _isItalic;
+  late bool _isUnderline;
+  late bool _isBulletList;
+  late bool _isNumberedList;
+  late Color _selectedTextColor;
+  Color? _selectedHighlightColor;
 
   final List<Color> _textColors = const [
     Colors.white,
@@ -40,7 +55,6 @@ class _FormatBottomSheetState extends State<FormatBottomSheet> {
     Color(0xFFFDD835), // زرد
     Color(0xFF43A047), // سبز
   ];
-  Color _selectedTextColor = Colors.white;
 
   final List<Color> _highlightColors = const [
     Color(0xFFD98A8A), // صورتی کم‌رنگ
@@ -51,7 +65,37 @@ class _FormatBottomSheetState extends State<FormatBottomSheet> {
     Color(0xFF9B7CD9), // بنفش
     Colors.white,
   ];
-  Color? _selectedHighlightColor;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final initial = widget.initialStyle;
+
+    _selectedHeading = initial.heading;
+    _isBold = initial.isBold;
+    _isItalic = initial.isItalic;
+    _isUnderline = initial.isUnderline;
+    _isBulletList = initial.isBulletList;
+    _isNumberedList = initial.isNumberedList;
+    _selectedTextColor = initial.textColor;
+    _selectedHighlightColor = initial.highlightColor;
+  }
+
+  void _emitChange() {
+    widget.onChanged(
+      TextFormatStyle(
+        heading: _selectedHeading,
+        isBold: _isBold,
+        isItalic: _isItalic,
+        isUnderline: _isUnderline,
+        isBulletList: _isBulletList,
+        isNumberedList: _isNumberedList,
+        textColor: _selectedTextColor,
+        highlightColor: _selectedHighlightColor,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -92,26 +136,32 @@ class _FormatBottomSheetState extends State<FormatBottomSheet> {
               children: [
                 _StyleTextButton(
                   label: 'Heading 1',
-                  selected: _selectedStyle == _TextStyleType.heading1,
+                  selected: _selectedHeading == HeadingType.heading1,
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
-                  onTap: () =>
-                      setState(() => _selectedStyle = _TextStyleType.heading1),
+                  onTap: () {
+                    setState(() => _selectedHeading = HeadingType.heading1);
+                    _emitChange();
+                  },
                 ),
                 const SizedBox(width: 24),
                 _StyleTextButton(
                   label: 'Heading 2',
-                  selected: _selectedStyle == _TextStyleType.heading2,
+                  selected: _selectedHeading == HeadingType.heading2,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  onTap: () =>
-                      setState(() => _selectedStyle = _TextStyleType.heading2),
+                  onTap: () {
+                    setState(() => _selectedHeading = HeadingType.heading2);
+                    _emitChange();
+                  },
                 ),
                 const Spacer(),
                 _TxtButton(
-                  selected: _selectedStyle == _TextStyleType.txt,
-                  onTap: () =>
-                      setState(() => _selectedStyle = _TextStyleType.txt),
+                  selected: _selectedHeading == HeadingType.none,
+                  onTap: () {
+                    setState(() => _selectedHeading = HeadingType.none);
+                    _emitChange();
+                  },
                 ),
               ],
             ),
@@ -131,18 +181,26 @@ class _FormatBottomSheetState extends State<FormatBottomSheet> {
                         _ToggleIconButton(
                           icon: Icons.format_bold,
                           active: _isBold,
-                          onTap: () => setState(() => _isBold = !_isBold),
+                          onTap: () {
+                            setState(() => _isBold = !_isBold);
+                            _emitChange();
+                          },
                         ),
                         _ToggleIconButton(
                           icon: Icons.format_italic,
                           active: _isItalic,
-                          onTap: () => setState(() => _isItalic = !_isItalic),
+                          onTap: () {
+                            setState(() => _isItalic = !_isItalic);
+                            _emitChange();
+                          },
                         ),
                         _ToggleIconButton(
                           icon: Icons.format_underline,
                           active: _isUnderline,
-                          onTap: () =>
-                              setState(() => _isUnderline = !_isUnderline),
+                          onTap: () {
+                            setState(() => _isUnderline = !_isUnderline);
+                            _emitChange();
+                          },
                         ),
                       ],
                     ),
@@ -157,10 +215,13 @@ class _FormatBottomSheetState extends State<FormatBottomSheet> {
                   child: _ToggleIconButton(
                     icon: Icons.format_list_bulleted,
                     active: _isBulletList,
-                    onTap: () => setState(() {
-                      _isBulletList = !_isBulletList;
-                      if (_isBulletList) _isNumberedList = false;
-                    }),
+                    onTap: () {
+                      setState(() {
+                        _isBulletList = !_isBulletList;
+                        if (_isBulletList) _isNumberedList = false;
+                      });
+                      _emitChange();
+                    },
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -172,10 +233,13 @@ class _FormatBottomSheetState extends State<FormatBottomSheet> {
                   child: _ToggleIconButton(
                     icon: Icons.format_list_numbered,
                     active: _isNumberedList,
-                    onTap: () => setState(() {
-                      _isNumberedList = !_isNumberedList;
-                      if (_isNumberedList) _isBulletList = false;
-                    }),
+                    onTap: () {
+                      setState(() {
+                        _isNumberedList = !_isNumberedList;
+                        if (_isNumberedList) _isBulletList = false;
+                      });
+                      _emitChange();
+                    },
                   ),
                 ),
               ],
@@ -190,8 +254,10 @@ class _FormatBottomSheetState extends State<FormatBottomSheet> {
                   : _selectedTextColor,
               colors: _textColors,
               selectedColor: _selectedTextColor,
-              onColorSelected: (color) =>
-                  setState(() => _selectedTextColor = color),
+              onColorSelected: (color) {
+                setState(() => _selectedTextColor = color);
+                _emitChange();
+              },
             ),
             const SizedBox(height: 12),
 
@@ -201,8 +267,10 @@ class _FormatBottomSheetState extends State<FormatBottomSheet> {
               leadingIconColor: const Color(0xFFF5A623),
               colors: _highlightColors,
               selectedColor: _selectedHighlightColor,
-              onColorSelected: (color) =>
-                  setState(() => _selectedHighlightColor = color),
+              onColorSelected: (color) {
+                setState(() => _selectedHighlightColor = color);
+                _emitChange();
+              },
             ),
           ],
         ),

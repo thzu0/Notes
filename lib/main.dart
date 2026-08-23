@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:notes_app/features/onboarding/presentation/onboarding_page.dart';
 import 'core/note_theme.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main(List<String> args) {
   runApp(const NotesApp());

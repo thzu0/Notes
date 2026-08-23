@@ -25,13 +25,50 @@ class BlockNoteCard extends StatelessWidget {
   Widget _buildBlockPreview(NoteBlock block, int index) {
     switch (block.type) {
       case NoteBlockType.text:
+        // فرمتی که از FormatBottomSheet روی این بلاک اعمال شده
+        // (heading/bold/italic/underline/list/رنگ‌ها) رو توی
+        // پیش‌نمایش کارت هم پیاده می‌کنیم، با سایزهای کوچیک‌تر
+        // متناسب با فضای کارت.
+        final format = block.format ?? const TextFormatStyle();
+
+        double fontSize;
+        FontWeight baseWeight;
+
+        switch (format.heading) {
+          case HeadingType.heading1:
+            fontSize = 16;
+            baseWeight = FontWeight.w700;
+            break;
+          case HeadingType.heading2:
+            fontSize = 14;
+            baseWeight = FontWeight.w600;
+            break;
+          case HeadingType.none:
+            fontSize = 13;
+            baseWeight = FontWeight.w400;
+            break;
+        }
+
+        final String prefix = format.isBulletList
+            ? '•  '
+            : (format.isNumberedList ? '1.  ' : '');
+
         return Padding(
           padding: const EdgeInsets.only(bottom: 6),
           child: Text(
-            block.text ?? '',
+            '$prefix${block.text ?? ''}',
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: AppColors.textPriamry, fontSize: 13),
+            style: TextStyle(
+              color: format.textColor,
+              backgroundColor: format.highlightColor,
+              fontSize: fontSize,
+              fontWeight: format.isBold ? FontWeight.w700 : baseWeight,
+              fontStyle: format.isItalic ? FontStyle.italic : FontStyle.normal,
+              decoration: format.isUnderline
+                  ? TextDecoration.underline
+                  : TextDecoration.none,
+            ),
           ),
         );
 
