@@ -2,15 +2,20 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+
 import 'package:notes_app/core/note_colors.dart';
 import 'package:notes_app/core/note_text_style.dart';
-import 'package:notes_app/data/fake_folder.dart';
 
 import 'package:notes_app/features/notes/model/model.dart';
+import 'package:notes_app/features/notes/model/model_folder.dart';
+
 import 'package:notes_app/features/notes/presentation/pages/Create_folder_bottom_sheet.dart.dart';
 import 'package:notes_app/features/notes/presentation/pages/about_us_page.dart';
 import 'package:notes_app/features/notes/presentation/pages/create_note_page.dart';
 import 'package:notes_app/features/notes/presentation/pages/feedback_page.dart';
+import 'package:notes_app/features/notes/presentation/pages/folder_notes_page.dart';
+import 'package:notes_app/features/notes/presentation/pages/search_page.dart';
+
 import 'package:notes_app/features/notes/presentation/widgets/folder_card_builder.dart';
 import 'package:notes_app/features/notes/presentation/widgets/note_card_builder.dart';
 
@@ -23,11 +28,24 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
+  // ============================================================
+  // DATA
+  // ============================================================
+
   final List<Note> notes = [];
+
+  final List<Folder> folders = [];
+
   late TabController _tabController;
 
+  // ============================================================
+  // TAB
+  // ============================================================
+
   void onTabChanged() {
-    setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -45,6 +63,10 @@ class _HomePageState extends State<HomePage>
     _tabController.dispose();
     super.dispose();
   }
+
+  // ============================================================
+  // REMINDER CHECKLIST
+  // ============================================================
 
   void _updateReminderItem(String noteId, int itemIndex, bool value) {
     final noteIndex = notes.indexWhere((note) => note.id == noteId);
@@ -78,8 +100,10 @@ class _HomePageState extends State<HomePage>
     });
   }
 
-  // برای نوت‌های آزاد (بلاک‌محور): وقتی کاربر روی یه آیتم
-  // چک‌لیستِ داخل note.blocks تپ می‌کنه.
+  // ============================================================
+  // BLOCK CHECKLIST
+  // ============================================================
+
   void _updateBlockChecklistItem(String noteId, int blockIndex, bool value) {
     final noteIndex = notes.indexWhere((note) => note.id == noteId);
 
@@ -117,8 +141,10 @@ class _HomePageState extends State<HomePage>
     });
   }
 
-  // با تپ روی یه کارت، صفحه ادیت با نوت موجود باز می‌شه
-  // و در برگشت، همون نوت (با همون id) در لیست جایگزین می‌شه.
+  // ============================================================
+  // EDIT NOTE
+  // ============================================================
+
   Future<void> _editNote(Note note) async {
     final Note? updatedNote = await Navigator.of(context).push<Note>(
       MaterialPageRoute(
@@ -137,155 +163,242 @@ class _HomePageState extends State<HomePage>
     });
   }
 
+  // ============================================================
+  // CREATE FOLDER
+  // ============================================================
+
+  Future<void> _createFolder() async {
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) {
+        return const CreateFolderBottomSheet();
+      },
+    );
+
+    if (result == null) return;
+
+    final String name = result['name'] as String;
+    final Color color = result['color'] as Color;
+
+    final Folder newFolder = Folder(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      name: name,
+      colorValue: color,
+    );
+
+    setState(() {
+      folders.add(newFolder);
+    });
+  }
+
+  // ============================================================
+  // FOLDER TAP
+  // ============================================================
+
+  void _openFolder(Folder folder) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => FolderNotesPage(
+          folder: folder,
+          notes: notes,
+
+          onNoteCreated: (note) {
+            setState(() {
+              notes.add(note);
+            });
+          },
+
+          onNoteUpdated: (updatedNote) {
+            final index = notes.indexWhere((note) => note.id == updatedNote.id);
+
+            if (index == -1) return;
+
+            setState(() {
+              notes[index] = updatedNote;
+            });
+          },
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
+
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
+    return Scaffold(
+      backgroundColor: AppColors.background,
+
+      // ========================================================
+      // APP BAR
+      // ========================================================
+      appBar: AppBar(
         backgroundColor: AppColors.background,
-        appBar: AppBar(
-          backgroundColor: AppColors.background,
-          elevation: 0,
-          automaticallyImplyLeading: false,
-          title: const Text('Notes'),
-          actions: <Widget>[
-            IconButton(
-              padding: EdgeInsets.zero,
+        elevation: 0,
+        automaticallyImplyLeading: false,
 
-              style: IconButton.styleFrom(foregroundColor: AppColors.textMuted),
-              onPressed: () {},
-              icon: Icon(Icons.search, size: 30),
-            ),
-            PopupMenuButton(
-              padding: EdgeInsets.zero,
-              icon: Icon(Icons.more_vert_outlined),
-              iconSize: 30,
-              iconColor: AppColors.textMuted,
+        title: const Text('Notes'),
 
-              menuPadding: EdgeInsets.all(8.0),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
-              ),
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'feedback',
-                  child: const Text('FeedBack'),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (value) => const FeedbackPage(),
-                      ),
-                    );
-                  },
-                ),
-
-                PopupMenuItem(
-                  value: 'about us',
-                  child: Text('About Us'),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (value) => const AboutUsPage(),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ],
-
-          bottom: PreferredSize(
-            preferredSize: Size.fromHeight(75),
-
-            child: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 1, sigmaY: 20),
-                child: Container(
-                  color: Colors.white.withValues(alpha: 0),
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: TabBar(
-                      controller: _tabController,
-                      dividerColor: Colors.transparent,
-
-                      indicatorColor: Color(0xFFF5C65D),
-
-                      indicatorWeight: 3,
-                      indicatorSize: TabBarIndicatorSize.label,
-                      labelColor: Color(0xFFF5C65D),
-                      unselectedLabelColor: Colors.grey,
-
-                      labelStyle: NoteTextStyle.tabActive,
-                      unselectedLabelStyle: NoteTextStyle.tabInactive,
-
-                      tabs: <Widget>[
-                        Tab(text: 'All'),
-                        Tab(text: 'Folder'),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+        actions: [
+          IconButton(
+            padding: EdgeInsets.zero,
+            style: IconButton.styleFrom(foregroundColor: AppColors.textMuted),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (value) => SearchPage(notes: notes)),
+              );
+            },
+            icon: const Icon(Icons.search, size: 30),
           ),
-        ),
-        body: SafeArea(
-          child: TabBarView(
-            controller: _tabController,
-            children: <Widget>[
-              AllNotesView(
-                notes: notes,
-                onReminderItemChanged: _updateReminderItem,
-                onBlockChecklistChanged: _updateBlockChecklistItem,
-                onNoteTap: _editNote,
+
+          PopupMenuButton(
+            padding: EdgeInsets.zero,
+            icon: const Icon(Icons.more_vert_outlined),
+            iconSize: 30,
+            iconColor: AppColors.textMuted,
+            menuPadding: const EdgeInsets.all(8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'feedback',
+                child: const Text('FeedBack'),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const FeedbackPage()),
+                  );
+                },
               ),
-              FolderView(),
+
+              PopupMenuItem(
+                value: 'about us',
+                child: const Text('About Us'),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AboutUsPage()),
+                  );
+                },
+              ),
             ],
           ),
-        ),
+        ],
 
-        floatingActionButton: Padding(
-          padding: const EdgeInsets.only(bottom: 30, right: 8),
-          child: FloatingActionButton(
-            shape: const CircleBorder(),
-            onPressed: () async {
-              if (_tabController.index == 0) {
-                final Note? newNote = await Navigator.of(context).push<Note>(
-                  MaterialPageRoute(
-                    builder: (context) => const CreateNotePage(),
+        // ========================================================
+        // TAB BAR
+        // ========================================================
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(75),
+
+          child: ClipRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 1, sigmaY: 20),
+
+              child: Container(
+                color: Colors.white.withValues(alpha: 0),
+
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 10),
+
+                  child: TabBar(
+                    controller: _tabController,
+                    dividerColor: Colors.transparent,
+                    indicatorColor: const Color(0xFFF5C65D),
+                    indicatorWeight: 3,
+                    indicatorSize: TabBarIndicatorSize.label,
+
+                    labelColor: const Color(0xFFF5C65D),
+
+                    unselectedLabelColor: Colors.grey,
+
+                    labelStyle: NoteTextStyle.tabActive,
+
+                    unselectedLabelStyle: NoteTextStyle.tabInactive,
+
+                    tabs: const [
+                      Tab(text: 'All'),
+                      Tab(text: 'Folder'),
+                    ],
                   ),
-                );
-                if (newNote != null) {
-                  setState(() {
-                    notes.add(newNote);
-                  });
-                }
-              } else {
-                final result = await showModalBottomSheet<Map<String, dynamic>>(
-                  context: context,
-                  backgroundColor: Colors.transparent,
-                  isScrollControlled: true,
-                  builder: (_) => const CreateFolderBottomSheet(),
-                );
-
-                if (result != null) {
-                  final String name = result['name'];
-                  final Color color = result['color'];
-
-                  // فعلاً برای تست
-                  print('Folder name: $name');
-                  print('Folder color: $color');
-
-                  // اینجا بعداً فولدر رو به fakeFolders اضافه می‌کنی
-                  // و setState می‌زنی تا Home آپدیت بشه.
-                }
-              }
-            },
-            child: Icon(
-              _tabController.index == 0
-                  ? Icons.note_add_outlined
-                  : Icons.create_new_folder_outlined,
+                ),
+              ),
             ),
+          ),
+        ),
+      ),
+
+      // ========================================================
+      // BODY
+      // ========================================================
+      body: SafeArea(
+        child: TabBarView(
+          controller: _tabController,
+
+          children: [
+            // ====================================================
+            // ALL NOTES
+            // ====================================================
+            AllNotesView(
+              notes: notes,
+
+              onReminderItemChanged: _updateReminderItem,
+
+              onBlockChecklistChanged: _updateBlockChecklistItem,
+
+              onNoteTap: _editNote,
+            ),
+
+            // ====================================================
+            // FOLDERS
+            // ====================================================
+            FolderView(folders: folders, onFolderTap: _openFolder),
+          ],
+        ),
+      ),
+
+      // ========================================================
+      // FAB
+      // ========================================================
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 30, right: 8),
+
+        child: FloatingActionButton(
+          shape: const CircleBorder(),
+
+          onPressed: () async {
+            // ================================================
+            // ALL TAB
+            // ================================================
+
+            if (_tabController.index == 0) {
+              final Note? newNote = await Navigator.of(context).push<Note>(
+                MaterialPageRoute(builder: (_) => const CreateNotePage()),
+              );
+
+              if (newNote != null) {
+                setState(() {
+                  notes.add(newNote);
+                });
+              }
+
+              return;
+            }
+
+            // ================================================
+            // FOLDER TAB
+            // ================================================
+
+            await _createFolder();
+          },
+
+          child: Icon(
+            _tabController.index == 0
+                ? Icons.note_add_outlined
+                : Icons.create_new_folder_outlined,
           ),
         ),
       ),
@@ -293,12 +406,19 @@ class _HomePageState extends State<HomePage>
   }
 }
 
+// ==================================================================
+// ALL NOTES VIEW
+// ==================================================================
+
 class AllNotesView extends StatelessWidget {
   final List<Note> notes;
+
   final void Function(String noteId, int itemIndex, bool value)?
   onReminderItemChanged;
+
   final void Function(String noteId, int blockIndex, bool value)?
   onBlockChecklistChanged;
+
   final void Function(Note note)? onNoteTap;
 
   const AllNotesView({
@@ -314,21 +434,31 @@ class AllNotesView extends StatelessWidget {
     if (notes.isEmpty) {
       return const Center(child: Text('No Notes Yet'));
     }
+
     return MasonryGridView.count(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, 100),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+
       crossAxisCount: 2,
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
+
       itemCount: notes.length,
+
       itemBuilder: (context, index) {
-        final note = notes[index];
+        final Note note = notes[index];
+
         return GestureDetector(
-          onTap: () => onNoteTap?.call(note),
+          onTap: () {
+            onNoteTap?.call(note);
+          },
+
           child: NoteCardBuilder(
             note: note,
+
             onReminderItemChanged: (itemIndex, value) {
               onReminderItemChanged?.call(note.id, itemIndex, value);
             },
+
             onBlockChecklistChanged: (blockIndex, value) {
               onBlockChecklistChanged?.call(note.id, blockIndex, value);
             },
@@ -339,26 +469,45 @@ class AllNotesView extends StatelessWidget {
   }
 }
 
+// ==================================================================
+// FOLDER VIEW
+// ==================================================================
+
 class FolderView extends StatelessWidget {
-  const FolderView({super.key});
+  final List<Folder> folders;
+
+  final void Function(Folder folder)? onFolderTap;
+
+  const FolderView({super.key, required this.folders, this.onFolderTap});
 
   @override
   Widget build(BuildContext context) {
-    if (fakeFolders.isEmpty) {
+    if (folders.isEmpty) {
       return const Center(child: Text('No Folders Yet'));
     }
+
     return GridView.builder(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, 100),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+
+      itemCount: folders.length,
+
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
         childAspectRatio: 0.95,
       ),
-      itemCount: fakeFolders.length,
+
       itemBuilder: (context, index) {
-        final folder = fakeFolders[index];
-        return FolderCardBuilder(folder: folder);
+        final Folder folder = folders[index];
+
+        return GestureDetector(
+          onTap: () {
+            onFolderTap?.call(folder);
+          },
+
+          child: FolderCardBuilder(folder: folder),
+        );
       },
     );
   }

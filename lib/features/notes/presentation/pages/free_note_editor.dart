@@ -1,7 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:fleather/fleather.dart';
+
 import 'package:notes_app/core/note_colors.dart';
 import 'package:notes_app/features/notes/model/model.dart';
-import 'package:notes_app/features/notes/presentation/widgets/format_bottom_sheet.dart';
+import '../widgets/format_bottom_sheet.dart';
 
 class FreeNoteEditor extends StatefulWidget {
   final List<NoteBlock> initialBlocks;
@@ -20,94 +24,187 @@ class FreeNoteEditor extends StatefulWidget {
 class FreeNoteEditorState extends State<FreeNoteEditor> {
   late List<NoteBlock> _blocks;
 
-  // یه Key ثابت به‌ازای هر بلاک، جدا از خودِ NoteBlock.
-  // چون هر بار toggle/ادیت یه نمونه‌ی جدید از NoteBlock ساخته میشه،
-  // بدون این Key ثابت، ویجت چک‌لیست هر بار از نو ساخته میشه و
-  // TextField داخلش فوکوس/کرسرش رو از دست می‌ده.
   final List<Key> _blockKeys = [];
 
-  final TextEditingController _textController = TextEditingController();
+  late FleatherController _fleatherController;
 
-  // استایل فرمتی که از FormatBottomSheet انتخاب شده و روی متنی که
-  // الان داره توی تکست‌فیلد پایین نوشته می‌شه (و بلاک بعدی که ساخته
-  // می‌شه) اعمال می‌شه.
-  TextFormatStyle _composingStyle = const TextFormatStyle();
+  final GlobalKey<EditorState> _fleatherEditorKey = GlobalKey<EditorState>();
+
+  final FocusNode _fleatherFocusNode = FocusNode();
+
+  // ============================================================
+  // INIT
+  // ============================================================
 
   @override
   void initState() {
     super.initState();
+
     _blocks = List<NoteBlock>.from(widget.initialBlocks);
+
     _blockKeys.addAll(List<Key>.generate(_blocks.length, (_) => UniqueKey()));
+
+    _fleatherController = _createControllerFromBlocks();
+
+    _fleatherController.addListener(_onFleatherChanged);
   }
 
-  @override
-  void dispose() {
-    _textController.dispose();
-    super.dispose();
+  // ============================================================
+  // CREATE FLEATHER CONTROLLER
+  // ============================================================
+
+  FleatherController _createControllerFromBlocks() {
+    final textBlock = _blocks.firstWhere(
+      (block) => block.type == NoteBlockType.text,
+      orElse: () => const NoteBlock(type: NoteBlockType.text),
+    );
+
+    if (textBlock.richTextJson != null &&
+        textBlock.richTextJson!.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(textBlock.richTextJson!);
+
+        if (decoded is List) {
+          final document = ParchmentDocument.fromJson(decoded);
+
+          return FleatherController(document: document);
+        }
+      } catch (_) {
+        // If old/corrupted rich text exists,
+        // start with an empty document.
+      }
+    }
+
+    return FleatherController();
   }
 
-  void _notifyChanged() {
-    widget.onChanged(List<NoteBlock>.unmodifiable(_blocks));
+  // ============================================================
+  // FLEATHER CHANGED
+  // ============================================================
+
+  void _onFleatherChanged() {
+    _saveFleatherDocument(notifyEditor: false);
   }
 
-  void _addTextBlock() {
-    final text = _textController.text.trim();
+  // ============================================================
+  // SAVE FLEATHER
+  // ============================================================
 
-    if (text.isEmpty) return;
+  void _saveFleatherDocument({bool notifyEditor = true}) {
+    final document = _fleatherController.document;
 
-    setState(() {
-      _blocks.add(
-        NoteBlock(
-          type: NoteBlockType.text,
-          text: text,
-          format: _composingStyle,
-        ),
-      );
-      _blockKeys.add(UniqueKey());
-    });
+    final dynamic json = document.toJson();
 
-    _textController.clear();
-    _notifyChanged();
+    final String jsonString = jsonEncode(json);
+
+    final String plainText = document.toPlainText().trim();
+
+    final int existingTextIndex = _blocks.indexWhere(
+      (block) => block.type == NoteBlockType.text,
+    );
+
+    // ----------------------------------------------------------
+    // EMPTY
+    // ----------------------------------------------------------
+
+    if (plainText.isEmpty) {
+      if (existingTextIndex != -1) {
+        setState(() {
+          _blocks.removeAt(existingTextIndex);
+
+          _blockKeys.removeAt(existingTextIndex);
+        });
+      }
+
+      if (notifyEditor) {
+        _notifyChanged();
+      }
+
+      return;
+    }
+
+    // ----------------------------------------------------------
+    // TEXT BLOCK
+    // ----------------------------------------------------------
+
+    final textBlock = NoteBlock(
+      type: NoteBlockType.text,
+      text: plainText,
+      richTextJson: jsonString,
+    );
+
+    if (existingTextIndex == -1) {
+      setState(() {
+        _blocks.insert(0, textBlock);
+
+        _blockKeys.insert(0, UniqueKey());
+      });
+    } else {
+      setState(() {
+        _blocks[existingTextIndex] = textBlock;
+      });
+    }
+
+    if (notifyEditor) {
+      _notifyChanged();
+    }
   }
 
-  /// اگه توی تکست‌فیلد پایین (Write something...) متنی نوشته شده باشه
-  /// ولی هنوز Enter/Add نزده باشه، این متد اون رو به یه Block تبدیل
-  /// می‌کنه. باید قبل از Save توسط CreateNotePage صدا زده بشه، وگرنه
-  /// اون متن گم می‌شه.
+  // ============================================================
+  // FLUSH
+  // ============================================================
+
   void flushPendingText() {
-    _addTextBlock();
+    _saveFleatherDocument();
   }
+
+  // ============================================================
+  // FORMAT BOTTOM SHEET
+  // ============================================================
+
+  void _openFormatBottomSheet() {
+    // مهم:
+    // اینجا selection را تغییر نمی‌دهیم.
+    //
+    // FleatherController خودش selection فعلی را نگه می‌دارد.
+    // فقط اجازه نمی‌دهیم BottomSheet برای خودش focus بگیرد.
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      requestFocus: false,
+      builder: (_) {
+        return FormatBottomSheet(
+          controller: _fleatherController,
+          onFormatChanged: () {
+            // بعد از format دوباره editor را focus می‌کنیم.
+            //
+            // خود selection داخل controller حفظ شده.
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+
+              _fleatherFocusNode.requestFocus();
+            });
+          },
+        );
+      },
+    );
+  }
+
+  // ============================================================
+  // CHECKLIST
+  // ============================================================
 
   void _addChecklistBlock() {
+    _saveFleatherDocument();
+
     setState(() {
       _blocks.add(
         const NoteBlock(type: NoteBlockType.checklist, text: '', isDone: false),
       );
+
       _blockKeys.add(UniqueKey());
-    });
-
-    _notifyChanged();
-  }
-
-  void _addQuoteBlock() {
-    setState(() {
-      _blocks.add(
-        const NoteBlock(
-          type: NoteBlockType.quote,
-          text: 'Quote',
-          quoteAuthor: '',
-        ),
-      );
-      _blockKeys.add(UniqueKey());
-    });
-
-    _notifyChanged();
-  }
-
-  void _removeBlock(int index) {
-    setState(() {
-      _blocks.removeAt(index);
-      _blockKeys.removeAt(index);
     });
 
     _notifyChanged();
@@ -118,8 +215,9 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
 
     setState(() {
       _blocks[index] = NoteBlock(
-        type: block.type,
+        type: NoteBlockType.checklist,
         text: block.text,
+        richTextJson: block.richTextJson,
         isDone: !(block.isDone ?? false),
         imageUrl: block.imageUrl,
         quoteAuthor: block.quoteAuthor,
@@ -133,8 +231,9 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
     final block = _blocks[index];
 
     _blocks[index] = NoteBlock(
-      type: block.type,
+      type: NoteBlockType.checklist,
       text: text,
+      richTextJson: block.richTextJson,
       isDone: block.isDone,
       imageUrl: block.imageUrl,
       quoteAuthor: block.quoteAuthor,
@@ -143,12 +242,31 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
     _notifyChanged();
   }
 
+  // ============================================================
+  // QUOTE
+  // ============================================================
+
+  void _addQuoteBlock() {
+    _saveFleatherDocument();
+
+    setState(() {
+      _blocks.add(
+        const NoteBlock(type: NoteBlockType.quote, text: '', quoteAuthor: ''),
+      );
+
+      _blockKeys.add(UniqueKey());
+    });
+
+    _notifyChanged();
+  }
+
   void _updateQuoteBlock(int index, {String? text, String? quoteAuthor}) {
     final block = _blocks[index];
 
     _blocks[index] = NoteBlock(
-      type: block.type,
+      type: NoteBlockType.quote,
       text: text ?? block.text,
+      richTextJson: block.richTextJson,
       isDone: block.isDone,
       imageUrl: block.imageUrl,
       quoteAuthor: quoteAuthor ?? block.quoteAuthor,
@@ -157,160 +275,252 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
     _notifyChanged();
   }
 
-  // تبدیل TextFormatStyle به TextStyle واقعی فلاتر، هم برای پیش‌نمایش
-  // زنده‌ی تکست‌فیلد در حال تایپ و هم برای بلاک متنی نهایی.
-  TextStyle _textStyleFor(TextFormatStyle format) {
-    double baseFontSize;
-    FontWeight baseWeight;
+  // ============================================================
+  // IMAGE
+  // ============================================================
 
-    switch (format.heading) {
-      case HeadingType.heading1:
-        baseFontSize = 22;
-        baseWeight = FontWeight.w700;
-        break;
-      case HeadingType.heading2:
-        baseFontSize = 18;
-        baseWeight = FontWeight.w600;
-        break;
-      case HeadingType.none:
-        baseFontSize = 16;
-        baseWeight = FontWeight.w400;
-        break;
-    }
+  void _addImageBlock() {
+    _saveFleatherDocument();
 
-    return TextStyle(
-      color: format.textColor,
-      backgroundColor: format.highlightColor,
-      fontSize: baseFontSize,
-      fontWeight: format.isBold ? FontWeight.w700 : baseWeight,
-      fontStyle: format.isItalic ? FontStyle.italic : FontStyle.normal,
-      decoration: format.isUnderline
-          ? TextDecoration.underline
-          : TextDecoration.none,
-    );
+    setState(() {
+      _blocks.add(const NoteBlock(type: NoteBlockType.image));
+
+      _blockKeys.add(UniqueKey());
+    });
+
+    _notifyChanged();
   }
 
-  // برای حالت بولت/شماره‌دار، چون هر بلاک متنی مستقل ذخیره می‌شه،
-  // فقط یه پیشوند ساده جلوی متن اضافه می‌کنیم.
-  String _listPrefixFor(TextFormatStyle format) {
-    if (format.isBulletList) return '•  ';
-    if (format.isNumberedList) return '1.  ';
-    return '';
+  // ============================================================
+  // REMOVE
+  // ============================================================
+
+  void _removeBlock(int index) {
+    setState(() {
+      _blocks.removeAt(index);
+      _blockKeys.removeAt(index);
+    });
+
+    _notifyChanged();
   }
 
-  void _openFormatSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => FormatBottomSheet(
-        initialStyle: _composingStyle,
-        onChanged: (style) => setState(() => _composingStyle = style),
+  // ============================================================
+  // NOTIFY
+  // ============================================================
+
+  void _notifyChanged() {
+    widget.onChanged(List<NoteBlock>.unmodifiable(_blocks));
+  }
+
+  // ============================================================
+  // TEXT BLOCK
+  // ============================================================
+
+  Widget _buildTextBlock(NoteBlock block, int index) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF202126),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                block.text ?? '',
+                style: const TextStyle(color: Colors.white, fontSize: 15),
+              ),
+            ),
+            IconButton(
+              onPressed: () => _removeBlock(index),
+              icon: const Icon(Icons.close, color: Colors.grey),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildBlock(NoteBlock block, int index) {
-    switch (block.type) {
-      case NoteBlockType.text:
-        final format = block.format ?? const TextFormatStyle();
+  // ============================================================
+  // CHECKLIST UI
+  // ============================================================
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  '${_listPrefixFor(format)}${block.text ?? ''}',
-                  style: _textStyleFor(format),
-                ),
-              ),
-              IconButton(
+  Widget _buildChecklistBlock(NoteBlock block, int index) {
+    return _ChecklistBlockItem(
+      key: _blockKeys[index],
+      initialText: block.text ?? '',
+      isDone: block.isDone ?? false,
+      onTextChanged: (text) {
+        _updateChecklistText(index, text);
+      },
+      onToggle: () {
+        _toggleChecklist(index);
+      },
+      onRemove: () {
+        _removeBlock(index);
+      },
+    );
+  }
+
+  // ============================================================
+  // QUOTE UI
+  // ============================================================
+
+  Widget _buildQuoteBlock(NoteBlock block, int index) {
+    return _QuoteBlockItem(
+      key: _blockKeys[index],
+      initialText: block.text ?? '',
+      initialAuthor: block.quoteAuthor ?? '',
+      onTextChanged: (text) {
+        _updateQuoteBlock(index, text: text);
+      },
+      onAuthorChanged: (author) {
+        _updateQuoteBlock(index, quoteAuthor: author);
+      },
+      onRemove: () {
+        _removeBlock(index);
+      },
+    );
+  }
+
+  // ============================================================
+  // IMAGE UI
+  // ============================================================
+
+  Widget _buildImageBlock(NoteBlock block, int index) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        height: 160,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: const Color(0xFF202126),
+        ),
+        child: Stack(
+          children: [
+            const Center(
+              child: Icon(Icons.image_outlined, color: Colors.grey, size: 40),
+            ),
+            Positioned(
+              right: 4,
+              top: 4,
+              child: IconButton(
                 onPressed: () => _removeBlock(index),
                 icon: const Icon(Icons.close, color: Colors.grey),
               ),
-            ],
-          ),
-        );
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // BLOCK BUILDER
+  // ============================================================
+
+  Widget _buildBlock(NoteBlock block, int index) {
+    switch (block.type) {
+      case NoteBlockType.text:
+        return _buildTextBlock(block, index);
 
       case NoteBlockType.checklist:
-        // آیتم چک‌لیست حالا یه ویجت جدا با TextField خودشه
-        // تا بشه متنش رو ویرایش کرد. ظاهرش عیناً مثل ReminderCard.
-        return _ChecklistBlockItem(
-          key: _blockKeys[index],
-          initialText: block.text ?? '',
-          isDone: block.isDone ?? false,
-          onTextChanged: (text) => _updateChecklistText(index, text),
-          onToggle: () => _toggleChecklist(index),
-          onRemove: () => _removeBlock(index),
-        );
+        return _buildChecklistBlock(block, index);
 
       case NoteBlockType.quote:
-        // بلاک quote حالا با دو تا TextField (متن + نویسنده)
-        // قابل ویرایشه، دقیقاً با همون تکنیک Key ثابت که برای
-        // چک‌لیست استفاده کردیم.
-        return _QuoteBlockItem(
-          key: _blockKeys[index],
-          initialText: block.text ?? '',
-          initialAuthor: block.quoteAuthor ?? '',
-          onTextChanged: (text) => _updateQuoteBlock(index, text: text),
-          onAuthorChanged: (author) =>
-              _updateQuoteBlock(index, quoteAuthor: author),
-          onRemove: () => _removeBlock(index),
-        );
+        return _buildQuoteBlock(block, index);
 
       case NoteBlockType.image:
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Container(
-            height: 160,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: const Color(0xFF202126),
-            ),
-            child: const Center(
-              child: Icon(Icons.image_outlined, color: Colors.grey, size: 40),
-            ),
-          ),
-        );
+        return _buildImageBlock(block, index);
     }
   }
 
+  // ============================================================
+  // DISPOSE
+  // ============================================================
+
+  @override
+  void dispose() {
+    _fleatherController.removeListener(_onFleatherChanged);
+
+    _fleatherController.dispose();
+
+    _fleatherFocusNode.dispose();
+
+    super.dispose();
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
+
   @override
   Widget build(BuildContext context) {
-    // ارتفاع فعلی کیبورد (وقتی بسته‌ست صفره)
     final double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
     return Column(
       children: [
+        // ========================================================
+        // EDITOR
+        // ========================================================
         Expanded(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             children: [
-              ..._blocks.asMap().entries.map(
-                (entry) => _buildBlock(entry.value, entry.key),
-              ),
+              ..._blocks
+                  .asMap()
+                  .entries
+                  .where((entry) => entry.value.type != NoteBlockType.text)
+                  .map((entry) => _buildBlock(entry.value, entry.key)),
 
-              TextField(
-                controller: _textController,
-                minLines: 3,
-                maxLines: null,
-                style: _textStyleFor(_composingStyle),
-                decoration: const InputDecoration(
-                  hintText: 'Write something...',
-                  hintStyle: TextStyle(color: Colors.grey),
-                  border: InputBorder.none,
+              // ==================================================
+              // FLEATHER
+              // ==================================================
+              Container(
+                constraints: const BoxConstraints(minHeight: 180),
+                width: double.infinity,
+                child: Stack(
+                  children: [
+                    if (_fleatherController.document
+                        .toPlainText()
+                        .trim()
+                        .isEmpty)
+                      const Positioned(
+                        top: 8,
+                        left: 0,
+                        child: Padding(
+                          padding: EdgeInsets.only(left: 16),
+                          child: Text(
+                            'Write content here ...',
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 18,
+                            ),
+                          ),
+                        ),
+                      ),
+                    FleatherEditor(
+                      controller: _fleatherController,
+                      focusNode: _fleatherFocusNode,
+                      editorKey: _fleatherEditorKey,
+                      autofocus: false,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ],
                 ),
-                onSubmitted: (_) => _addTextBlock(),
               ),
             ],
           ),
         ),
 
-        // نوار پایین دیگه ثابت نیست؛ با AnimatedPadding خودش
-        // به‌آرومی بالای کیبورد میره وقتی کیبورد باز میشه
+        // ========================================================
+        // TOOLBAR
+        // ========================================================
         AnimatedPadding(
           duration: const Duration(milliseconds: 100),
           curve: Curves.easeOut,
@@ -320,14 +530,18 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
                 : MediaQuery.of(context).padding.bottom,
           ),
           child: Container(
-            height: 56,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            color: Colors.transparent,
+            height: 58,
+            decoration: const BoxDecoration(
+              color: AppColors.darkCardBackground,
+              border: Border(top: BorderSide(color: Color(0xFF2A2D35))),
+            ),
             child: Row(
               children: [
+                // =================================================
+                // CHECKLIST
+                // =================================================
                 IconButton(
                   onPressed: _addChecklistBlock,
-                  padding: EdgeInsets.zero,
                   icon: const Icon(
                     Icons.check_box_outlined,
                     color: Colors.white,
@@ -335,9 +549,11 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
                   ),
                 ),
 
+                // =================================================
+                // QUOTE
+                // =================================================
                 IconButton(
                   onPressed: _addQuoteBlock,
-                  padding: EdgeInsets.zero,
                   icon: const Icon(
                     Icons.format_quote,
                     color: Colors.white,
@@ -345,11 +561,11 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
                   ),
                 ),
 
+                // =================================================
+                // IMAGE
+                // =================================================
                 IconButton(
-                  onPressed: () {
-                    // مرحله بعدی: انتخاب تصویر
-                  },
-                  padding: EdgeInsets.zero,
+                  onPressed: _addImageBlock,
                   icon: const Icon(
                     Icons.image_outlined,
                     color: Colors.white,
@@ -357,18 +573,15 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
                   ),
                 ),
 
-                IconButton(
-                  tooltip: 'more content',
-                  onPressed: _addTextBlock,
-                  padding: EdgeInsets.zero,
-                  icon: const Icon(Icons.add, color: Colors.white, size: 22),
-                ),
+                const Spacer(),
 
+                // =================================================
+                // FORMAT
+                // =================================================
                 IconButton(
-                  onPressed: _openFormatSheet,
-                  padding: EdgeInsets.zero,
+                  onPressed: _openFormatBottomSheet,
                   icon: const Icon(
-                    Icons.text_fields_rounded,
+                    Icons.text_fields,
                     color: Colors.white,
                     size: 22,
                   ),
@@ -382,15 +595,16 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
   }
 }
 
-/// آیتم چک‌لیست با TextField قابل ویرایش.
-/// TextEditingController فقط یه‌بار توی initState از initialText
-/// مقداردهی میشه؛ به همین خاطر با Key ثابتی که والد پاس می‌ده،
-/// این ویجت با toggle/تغییرات بقیه‌ی بلاک‌ها دوباره initState نمی‌شه
-/// و متنی که کاربر داره تایپ می‌کنه از دست نمی‌ره.
+// ==================================================================
+// CHECKLIST ITEM
+// ==================================================================
+
 class _ChecklistBlockItem extends StatefulWidget {
   final String initialText;
   final bool isDone;
+
   final ValueChanged<String> onTextChanged;
+
   final VoidCallback onToggle;
   final VoidCallback onRemove;
 
@@ -413,6 +627,7 @@ class _ChecklistBlockItemState extends State<_ChecklistBlockItem> {
   @override
   void initState() {
     super.initState();
+
     _controller = TextEditingController(text: widget.initialText);
   }
 
@@ -481,14 +696,18 @@ class _ChecklistBlockItemState extends State<_ChecklistBlockItem> {
   }
 }
 
-/// بلاک quote با دو TextField قابل ویرایش (متن نقل‌قول + نویسنده).
-/// مثل _ChecklistBlockItem، کنترلرها فقط یه‌بار توی initState
-/// مقداردهی میشن تا با toggle/تغییر بقیه‌ی بلاک‌ها پاک نشن.
+// ==================================================================
+// QUOTE ITEM
+// ==================================================================
+
 class _QuoteBlockItem extends StatefulWidget {
   final String initialText;
   final String initialAuthor;
+
   final ValueChanged<String> onTextChanged;
+
   final ValueChanged<String> onAuthorChanged;
+
   final VoidCallback onRemove;
 
   const _QuoteBlockItem({
@@ -506,12 +725,15 @@ class _QuoteBlockItem extends StatefulWidget {
 
 class _QuoteBlockItemState extends State<_QuoteBlockItem> {
   late final TextEditingController _textController;
+
   late final TextEditingController _authorController;
 
   @override
   void initState() {
     super.initState();
+
     _textController = TextEditingController(text: widget.initialText);
+
     _authorController = TextEditingController(text: widget.initialAuthor);
   }
 
@@ -519,6 +741,7 @@ class _QuoteBlockItemState extends State<_QuoteBlockItem> {
   void dispose() {
     _textController.dispose();
     _authorController.dispose();
+
     super.dispose();
   }
 

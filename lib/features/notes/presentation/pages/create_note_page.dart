@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:notes_app/core/note_colors.dart';
-import 'package:notes_app/core/note_text_style.dart';
+
 import 'package:notes_app/features/notes/model/model.dart';
+import 'package:notes_app/features/notes/model/model_folder.dart';
 import 'package:notes_app/features/notes/presentation/pages/free_note_editor.dart';
-import 'package:notes_app/features/notes/presentation/widgets/format_bottom_sheet.dart';
 
 /// صفحه ساخت / ویرایش Note.
 ///
@@ -18,8 +18,9 @@ import 'package:notes_app/features/notes/presentation/widgets/format_bottom_shee
 /// چند نوع Block مختلف مثل Text / Checklist / Quote / Image داشته باشند.
 class CreateNotePage extends StatefulWidget {
   final Note? existingNote;
+  final Folder? folder;
 
-  const CreateNotePage({super.key, this.existingNote});
+  const CreateNotePage({super.key, this.existingNote, this.folder});
 
   bool get isEditing => existingNote != null;
 
@@ -276,8 +277,6 @@ class _CreateNotePageState extends State<CreateNotePage> {
   // ============================================================
 
   void _saveNote() {
-    // اگه کاربر توی تکست‌فیلد آزاد چیزی نوشته ولی هنوز Enter نزده،
-    // اول اون رو تبدیل به Block می‌کنیم تا موقع Save گم نشه.
     if (selectedType != NoteType.reminder) {
       _editorKey.currentState?.flushPendingText();
     }
@@ -289,27 +288,22 @@ class _CreateNotePageState extends State<CreateNotePage> {
 
       title: _titleController.text.trim(),
 
-      // Reminder فعلاً از content استفاده می‌کند
-      // و بقیه Noteها از blocks.
       content: _contentController.text.trim(),
 
       type: selectedType,
 
-      folderld: existing?.folderld,
+      folderld: existing?.folderld ?? widget.folder?.id,
 
       createdAt: existing?.createdAt ?? DateTime.now(),
 
       imageUrl: existing?.imageUrl,
 
-      // فقط Reminder
       checklistitems: selectedType == NoteType.reminder
           ? List<ChecklistItem>.from(_reminderItems)
           : null,
 
-      // فقط Reminder
       reminderTime: selectedType == NoteType.reminder ? _reminderTime : null,
 
-      // فقط Noteهای آزاد
       blocks: selectedType == NoteType.reminder
           ? const []
           : List<NoteBlock>.from(_noteBlocks),

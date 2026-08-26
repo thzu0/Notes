@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:fleather/fleather.dart';
+
 import 'package:notes_app/features/onboarding/presentation/onboarding_page.dart';
 import 'core/note_theme.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main(List<String> args) {
   runApp(const NotesApp());
@@ -21,6 +23,16 @@ class _NotesAppState extends State<NotesApp> {
       debugShowCheckedModeBanner: false,
 
       theme: NoteTheme.darkTheme,
+
+      localizationsDelegates: const [
+        FleatherLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+
+      supportedLocales: FleatherLocalizations.supportedLocales,
+
       home: OnboardingPage(),
     );
   }

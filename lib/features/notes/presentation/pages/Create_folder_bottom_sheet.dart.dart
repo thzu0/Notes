@@ -1,19 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// بات‌شیت افزودن فولدر جدید.
-///
-/// استفاده (مثلاً توی onPressed فب):
-/// final result = await showModalBottomSheet<Map<String, dynamic>>(
-///   context: context,
-///   backgroundColor: Colors.transparent,
-///   isScrollControlled: true,
-///   builder: (_) => const AddFolderBottomSheet(),
-/// );
-/// if (result != null) {
-///   final String name = result['name'];
-///   final Color color = result['color'];
-///   // اینجا فولدر رو بساز/سیو کن
-/// }
 class CreateFolderBottomSheet extends StatefulWidget {
   const CreateFolderBottomSheet({super.key});
 
@@ -30,50 +16,65 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
   static const Color _selectedBlue = Color(0xFF2F6FED);
 
   final TextEditingController _nameController = TextEditingController();
+
   final FocusNode _nameFocusNode = FocusNode();
 
   final List<Color> _folderColors = const [
-    Color(0xFFF5A623), // نارنجی (پیش‌فرض)
-    Color(0xFFE53935), // قرمز
-    Color(0xFFFDD835), // زرد
-    Color(0xFF43A047), // سبز
-    Color(0xFF29B6F6), // آبی روشن
-    Color(0xFF5C6BC0), // بنفش‌آبی
-    Color(0xFF9B7CD9), // بنفش
-    Color(0xFFEC407A), // صورتی
+    Color(0xFFF5A623),
+    Color(0xFFE53935),
+    Color(0xFFFDD835),
+    Color(0xFF43A047),
+    Color(0xFF29B6F6),
+    Color(0xFF5C6BC0),
+    Color(0xFF9B7CD9),
+    Color(0xFFEC407A),
   ];
+
   late Color _selectedColor;
 
-  bool get _isNameValid => _nameController.text.trim().isNotEmpty;
+  bool get _isNameValid {
+    return _nameController.text.trim().isNotEmpty;
+  }
 
   @override
   void initState() {
     super.initState();
+
     _selectedColor = _folderColors.first;
-    _nameController.addListener(() => setState(() {}));
-    // یه فریم صبر می‌کنیم تا بات‌شیت کامل باز بشه، بعد کیبورد رو باز می‌کنیم
+
+    _nameController.addListener(_onNameChanged);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _nameFocusNode.requestFocus();
+      if (mounted) {
+        _nameFocusNode.requestFocus();
+      }
     });
+  }
+
+  void _onNameChanged() {
+    setState(() {});
   }
 
   @override
   void dispose() {
+    _nameController.removeListener(_onNameChanged);
     _nameController.dispose();
     _nameFocusNode.dispose();
     super.dispose();
   }
 
   void _handleCreate() {
-    if (!_isNameValid) return;
-    Navigator.of(
-      context,
-    ).pop({'name': _nameController.text.trim(), 'color': _selectedColor});
+    final String name = _nameController.text.trim();
+
+    if (name.isEmpty) {
+      return;
+    }
+
+    Navigator.of(context).pop({'name': name, 'color': _selectedColor});
   }
 
   @override
   Widget build(BuildContext context) {
-    // فاصله‌ی کیبورد، تا شیت زیر کیبورد گم نشه
     final double bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Padding(
@@ -90,7 +91,9 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // هدر
+              // ==================================================
+              // HEADER
+              // ==================================================
               Row(
                 children: [
                   const Text(
@@ -101,16 +104,23 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
+
                   const Spacer(),
+
                   IconButton(
                     icon: const Icon(Icons.close, color: _hintColor),
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
                   ),
                 ],
               ),
+
               const SizedBox(height: 8),
 
-              // فیلد اسم فولدر
+              // ==================================================
+              // FOLDER NAME
+              // ==================================================
               Container(
                 decoration: BoxDecoration(
                   color: _fieldBg,
@@ -121,7 +131,9 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
                   focusNode: _nameFocusNode,
                   style: const TextStyle(color: _textColor, fontSize: 16),
                   textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _handleCreate(),
+                  onSubmitted: (_) {
+                    _handleCreate();
+                  },
                   decoration: const InputDecoration(
                     hintText: 'Folder name',
                     hintStyle: TextStyle(color: _hintColor, fontSize: 16),
@@ -133,8 +145,12 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
                   ),
                 ),
               ),
+
               const SizedBox(height: 20),
 
+              // ==================================================
+              // COLOR TITLE
+              // ==================================================
               const Text(
                 'Color',
                 style: TextStyle(
@@ -143,16 +159,24 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
+
               const SizedBox(height: 10),
 
-              // ردیف رنگ‌ها
+              // ==================================================
+              // COLORS
+              // ==================================================
               Wrap(
                 spacing: 14,
                 runSpacing: 12,
                 children: _folderColors.map((color) {
                   final bool isSelected = color == _selectedColor;
+
                   return GestureDetector(
-                    onTap: () => setState(() => _selectedColor = color),
+                    onTap: () {
+                      setState(() {
+                        _selectedColor = color;
+                      });
+                    },
                     child: Container(
                       width: 32,
                       height: 32,
@@ -174,9 +198,12 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
                   );
                 }).toList(),
               ),
+
               const SizedBox(height: 24),
 
-              // دکمه‌ی ساخت
+              // ==================================================
+              // CREATE BUTTON
+              // ==================================================
               SizedBox(
                 width: double.infinity,
                 height: 50,
@@ -185,10 +212,10 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _selectedBlue,
                     disabledBackgroundColor: _fieldBg,
+                    elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    elevation: 0,
                   ),
                   child: const Text(
                     'Create',

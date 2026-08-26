@@ -1,17 +1,16 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:fleather/fleather.dart';
+
 import 'package:notes_app/core/note_colors.dart';
 import 'package:notes_app/core/note_text_style.dart';
 import 'package:notes_app/features/notes/model/model.dart';
 import 'package:notes_app/features/notes/presentation/widgets/note_meta.dart';
 
-/// کارتی که برای نمایش نوت‌های آزاد (بلاک‌محور) توی خونه استفاده میشه.
-/// این نوت‌ها همون‌هایی هستن که با FreeNoteEditor ساخته شدن، یعنی
-/// همه‌ی type ها بجز reminder (چون reminder ساختار جدای خودش رو داره).
 class BlockNoteCard extends StatelessWidget {
   final Note note;
 
-  /// وقتی کاربر روی یه آیتم چک‌لیستِ داخل بلاک‌ها تپ می‌کنه.
-  /// blockIndex ایندکسِ اون بلاک توی note.blocks هست.
   final void Function(int blockIndex, bool value)? onChecklistItemChanged;
 
   const BlockNoteCard({
@@ -22,55 +21,78 @@ class BlockNoteCard extends StatelessWidget {
 
   static const int _maxPreviewBlocks = 4;
 
+  // ============================================================
+  // RICH TEXT PREVIEW
+  // ============================================================
+
+  Widget _buildRichTextPreview(NoteBlock block) {
+    final jsonString = block.richTextJson;
+
+    if (jsonString == null || jsonString.trim().isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Text(
+          block.text ?? '',
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: AppColors.textPriamry, fontSize: 13),
+        ),
+      );
+    }
+
+    try {
+      final List<dynamic> jsonDocument = jsonDecode(jsonString);
+
+      final document = ParchmentDocument.fromJson(jsonDocument);
+
+      final controller = FleatherController(document: document);
+
+      return Container(
+        constraints: const BoxConstraints(maxHeight: 150),
+        margin: const EdgeInsets.only(bottom: 6),
+        child: IgnorePointer(
+          child: FleatherEditor(
+            controller: controller,
+            readOnly: true,
+            scrollable: false,
+            showCursor: false,
+            enableInteractiveSelection: false,
+            autofocus: false,
+            padding: EdgeInsets.zero,
+            textWidthBasis: TextWidthBasis.parent,
+          ),
+        ),
+      );
+    } catch (_) {
+      // اگر JSON خراب بود، حداقل plain text نمایش داده شود.
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Text(
+          block.text ?? '',
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: AppColors.textPriamry, fontSize: 13),
+        ),
+      );
+    }
+  }
+
+  // ============================================================
+  // BLOCK PREVIEW
+  // ============================================================
+
   Widget _buildBlockPreview(NoteBlock block, int index) {
     switch (block.type) {
+      // ========================================================
+      // TEXT
+      // ========================================================
+
       case NoteBlockType.text:
-        // فرمتی که از FormatBottomSheet روی این بلاک اعمال شده
-        // (heading/bold/italic/underline/list/رنگ‌ها) رو توی
-        // پیش‌نمایش کارت هم پیاده می‌کنیم، با سایزهای کوچیک‌تر
-        // متناسب با فضای کارت.
-        final format = block.format ?? const TextFormatStyle();
+        return _buildRichTextPreview(block);
 
-        double fontSize;
-        FontWeight baseWeight;
-
-        switch (format.heading) {
-          case HeadingType.heading1:
-            fontSize = 16;
-            baseWeight = FontWeight.w700;
-            break;
-          case HeadingType.heading2:
-            fontSize = 14;
-            baseWeight = FontWeight.w600;
-            break;
-          case HeadingType.none:
-            fontSize = 13;
-            baseWeight = FontWeight.w400;
-            break;
-        }
-
-        final String prefix = format.isBulletList
-            ? '•  '
-            : (format.isNumberedList ? '1.  ' : '');
-
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 6),
-          child: Text(
-            '$prefix${block.text ?? ''}',
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: format.textColor,
-              backgroundColor: format.highlightColor,
-              fontSize: fontSize,
-              fontWeight: format.isBold ? FontWeight.w700 : baseWeight,
-              fontStyle: format.isItalic ? FontStyle.italic : FontStyle.normal,
-              decoration: format.isUnderline
-                  ? TextDecoration.underline
-                  : TextDecoration.none,
-            ),
-          ),
-        );
+      // ========================================================
+      // CHECKLIST
+      // ========================================================
 
       case NoteBlockType.checklist:
         final bool isDone = block.isDone ?? false;
@@ -80,7 +102,9 @@ class BlockNoteCard extends StatelessWidget {
           child: InkWell(
             onTap: onChecklistItemChanged == null
                 ? null
-                : () => onChecklistItemChanged!.call(index, !isDone),
+                : () {
+                    onChecklistItemChanged!.call(index, !isDone);
+                  },
             borderRadius: BorderRadius.circular(6),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,7 +116,9 @@ class BlockNoteCard extends StatelessWidget {
                       ? AppColors.textPriamry
                       : AppColors.textSecondery,
                 ),
+
                 const SizedBox(width: 6),
+
                 Expanded(
                   child: Text(
                     block.text ?? '',
@@ -109,6 +135,10 @@ class BlockNoteCard extends StatelessWidget {
             ),
           ),
         );
+
+      // ========================================================
+      // QUOTE
+      // ========================================================
 
       case NoteBlockType.quote:
         return Padding(
@@ -129,6 +159,7 @@ class BlockNoteCard extends StatelessWidget {
 
               if ((block.quoteAuthor ?? '').trim().isNotEmpty) ...[
                 const SizedBox(height: 6),
+
                 Text(
                   '— ${block.quoteAuthor}',
                   maxLines: 1,
@@ -142,6 +173,11 @@ class BlockNoteCard extends StatelessWidget {
             ],
           ),
         );
+
+      // ========================================================
+      // IMAGE
+      // ========================================================
+
       case NoteBlockType.image:
         return Container(
           margin: const EdgeInsets.only(bottom: 6),
@@ -162,6 +198,10 @@ class BlockNoteCard extends StatelessWidget {
     }
   }
 
+  // ============================================================
+  // BUILD
+  // ============================================================
+
   @override
   Widget build(BuildContext context) {
     final previewBlocks = note.blocks.take(_maxPreviewBlocks).toList();
@@ -176,23 +216,38 @@ class BlockNoteCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
+          // ======================================================
+          // TITLE
+          // ======================================================
           if (note.title.isNotEmpty) ...[
-            Text(note.title, style: NoteTextStyle.headingTitleCard),
+            Text(
+              note.title,
+              style: NoteTextStyle.headingTitleCard,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+
             const SizedBox(height: 10),
           ],
 
+          // ======================================================
+          // BLOCKS
+          // ======================================================
           if (previewBlocks.isEmpty)
             const Text(
               'Empty note',
               style: TextStyle(color: AppColors.textSecondery, fontSize: 12),
             )
           else
-            ...previewBlocks.asMap().entries.map(
-              (entry) => _buildBlockPreview(entry.value, entry.key),
-            ),
+            ...previewBlocks.asMap().entries.map((entry) {
+              return _buildBlockPreview(entry.value, entry.key);
+            }),
 
           const SizedBox(height: 4),
 
+          // ======================================================
+          // META
+          // ======================================================
           NoteMeta(note: note),
         ],
       ),
