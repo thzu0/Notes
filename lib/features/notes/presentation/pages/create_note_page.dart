@@ -6,6 +6,8 @@ import 'package:notes_app/features/notes/model/model_folder.dart';
 import 'package:notes_app/features/notes/presentation/pages/free_note_editor.dart';
 import 'package:notes_app/features/notes/presentation/widgets/reminder_time_picker.dart';
 
+///page of set time for reminder
+
 /// صفحه ساخت / ویرایش Note.
 ///
 /// اگر existingNote پاس داده بشه، صفحه در حالت ویرایش باز می‌شه:
