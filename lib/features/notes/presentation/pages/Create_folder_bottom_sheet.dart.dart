@@ -16,7 +16,6 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
   static const Color _selectedBlue = Color(0xFF2F6FED);
 
   final TextEditingController _nameController = TextEditingController();
-
   final FocusNode _nameFocusNode = FocusNode();
 
   final List<Color> _folderColors = const [
@@ -75,159 +74,171 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final double bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final MediaQueryData mediaQuery = MediaQuery.of(context);
+
+    final double bottomInset = mediaQuery.viewInsets.bottom;
+
+    final double availableHeight = mediaQuery.size.height - bottomInset;
+
+    final double maxSheetHeight = availableHeight * 0.9;
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: SafeArea(
         top: false,
-        child: Container(
-          decoration: const BoxDecoration(
-            color: _sheetBg,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ==================================================
-              // HEADER
-              // ==================================================
-              Row(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxSheetHeight),
+          child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: Container(
+              decoration: const BoxDecoration(
+                color: _sheetBg,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'New Folder',
-                    style: TextStyle(
-                      color: _textColor,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
+                  // ==================================================
+                  // HEADER
+                  // ==================================================
+                  Row(
+                    children: [
+                      const Text(
+                        'New Folder',
+                        style: TextStyle(
+                          color: _textColor,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+
+                      const Spacer(),
+
+                      IconButton(
+                        icon: const Icon(Icons.close, color: _hintColor),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  // ==================================================
+                  // FOLDER NAME
+                  // ==================================================
+                  Container(
+                    decoration: BoxDecoration(
+                      color: _fieldBg,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: TextField(
+                      controller: _nameController,
+                      focusNode: _nameFocusNode,
+                      style: const TextStyle(color: _textColor, fontSize: 16),
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) {
+                        _handleCreate();
+                      },
+                      decoration: const InputDecoration(
+                        hintText: 'Folder name',
+                        hintStyle: TextStyle(color: _hintColor, fontSize: 16),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 14,
+                        ),
+                      ),
                     ),
                   ),
 
-                  const Spacer(),
+                  const SizedBox(height: 20),
 
-                  IconButton(
-                    icon: const Icon(Icons.close, color: _hintColor),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
+                  // ==================================================
+                  // COLOR TITLE
+                  // ==================================================
+                  const Text(
+                    'Color',
+                    style: TextStyle(
+                      color: _hintColor,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // ==================================================
+                  // COLORS
+                  // ==================================================
+                  Wrap(
+                    spacing: 14,
+                    runSpacing: 12,
+                    children: _folderColors.map((color) {
+                      final bool isSelected = color == _selectedColor;
+
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedColor = color;
+                          });
+                        },
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                            border: isSelected
+                                ? Border.all(color: Colors.white, width: 2)
+                                : null,
+                          ),
+                          child: isSelected
+                              ? const Icon(
+                                  Icons.check,
+                                  size: 18,
+                                  color: Colors.white,
+                                )
+                              : null,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // ==================================================
+                  // CREATE BUTTON
+                  // ==================================================
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: _isNameValid ? _handleCreate : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _selectedBlue,
+                        disabledBackgroundColor: _fieldBg,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Create',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
-
-              const SizedBox(height: 8),
-
-              // ==================================================
-              // FOLDER NAME
-              // ==================================================
-              Container(
-                decoration: BoxDecoration(
-                  color: _fieldBg,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: TextField(
-                  controller: _nameController,
-                  focusNode: _nameFocusNode,
-                  style: const TextStyle(color: _textColor, fontSize: 16),
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) {
-                    _handleCreate();
-                  },
-                  decoration: const InputDecoration(
-                    hintText: 'Folder name',
-                    hintStyle: TextStyle(color: _hintColor, fontSize: 16),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 14,
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // ==================================================
-              // COLOR TITLE
-              // ==================================================
-              const Text(
-                'Color',
-                style: TextStyle(
-                  color: _hintColor,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              // ==================================================
-              // COLORS
-              // ==================================================
-              Wrap(
-                spacing: 14,
-                runSpacing: 12,
-                children: _folderColors.map((color) {
-                  final bool isSelected = color == _selectedColor;
-
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedColor = color;
-                      });
-                    },
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        border: isSelected
-                            ? Border.all(color: Colors.white, width: 2)
-                            : null,
-                      ),
-                      child: isSelected
-                          ? const Icon(
-                              Icons.check,
-                              size: 18,
-                              color: Colors.white,
-                            )
-                          : null,
-                    ),
-                  );
-                }).toList(),
-              ),
-
-              const SizedBox(height: 24),
-
-              // ==================================================
-              // CREATE BUTTON
-              // ==================================================
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _isNameValid ? _handleCreate : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _selectedBlue,
-                    disabledBackgroundColor: _fieldBg,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'Create',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

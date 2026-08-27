@@ -4,6 +4,7 @@ import 'package:notes_app/core/note_colors.dart';
 import 'package:notes_app/features/notes/model/model.dart';
 import 'package:notes_app/features/notes/model/model_folder.dart';
 import 'package:notes_app/features/notes/presentation/pages/free_note_editor.dart';
+import 'package:notes_app/features/notes/presentation/widgets/reminder_time_picker.dart';
 
 /// صفحه ساخت / ویرایش Note.
 ///
@@ -214,8 +215,8 @@ class _CreateNotePageState extends State<CreateNotePage> {
   }
 
   Future<void> _pickReminderTime() async {
-    final time = await showTimePicker(
-      context: context,
+    final time = await ReminderTimePicker.show(
+      context,
       initialTime: _reminderTime != null
           ? TimeOfDay.fromDateTime(_reminderTime!)
           : TimeOfDay.now(),

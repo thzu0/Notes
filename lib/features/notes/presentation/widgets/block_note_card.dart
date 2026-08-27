@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:fleather/fleather.dart';
@@ -20,6 +21,97 @@ class BlockNoteCard extends StatelessWidget {
   });
 
   static const int _maxPreviewBlocks = 4;
+
+  // ============================================================
+  // IMAGE NOTE CARD
+  // ============================================================
+  Widget _buildImageNoteCard(NoteBlock imageBlock) {
+    final imagePath = imageBlock.imageUrl;
+
+    NoteBlock? textBlock;
+
+    for (final block in note.blocks) {
+      if (block.type == NoteBlockType.text) {
+        textBlock = block;
+        break;
+      }
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.darkCardBackground,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ======================================================
+          // IMAGE
+          // ======================================================
+          AspectRatio(
+            aspectRatio: 1.55,
+            child: imagePath != null && imagePath.isNotEmpty
+                ? Image.file(
+                    File(imagePath),
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: const Color(0xFF202126),
+                        child: const Center(
+                          child: Icon(
+                            Icons.broken_image_outlined,
+                            color: AppColors.textSecondery,
+                            size: 38,
+                          ),
+                        ),
+                      );
+                    },
+                  )
+                : Container(
+                    color: const Color(0xFF202126),
+                    child: const Center(
+                      child: Icon(
+                        Icons.image_outlined,
+                        color: AppColors.textSecondery,
+                        size: 38,
+                      ),
+                    ),
+                  ),
+          ),
+
+          // ======================================================
+          // CONTENT
+          // ======================================================
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (note.title.isNotEmpty) ...[
+                  Text(
+                    note.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: NoteTextStyle.headingTitleCard,
+                  ),
+
+                  const SizedBox(height: 8),
+                ],
+
+                if (textBlock != null) _buildRichTextPreview(textBlock),
+
+                const SizedBox(height: 4),
+
+                NoteMeta(note: note),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   // ============================================================
   // RICH TEXT PREVIEW
@@ -205,6 +297,15 @@ class BlockNoteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final previewBlocks = note.blocks.take(_maxPreviewBlocks).toList();
+
+    final imageBlock = note.blocks.cast<NoteBlock?>().firstWhere(
+      (block) => block?.type == NoteBlockType.image,
+      orElse: () => null,
+    );
+
+    if (note.type == NoteType.image && imageBlock != null) {
+      return _buildImageNoteCard(imageBlock);
+    }
 
     return Container(
       padding: const EdgeInsets.all(14),

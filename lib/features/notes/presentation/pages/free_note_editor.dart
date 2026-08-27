@@ -1,10 +1,13 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:fleather/fleather.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'package:notes_app/core/note_colors.dart';
 import 'package:notes_app/features/notes/model/model.dart';
+import 'package:notes_app/features/notes/presentation/widgets/color_picker_bottom_sheet.dart';
 import '../widgets/format_bottom_sheet.dart';
 
 class FreeNoteEditor extends StatefulWidget {
@@ -31,6 +34,8 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
   final GlobalKey<EditorState> _fleatherEditorKey = GlobalKey<EditorState>();
 
   final FocusNode _fleatherFocusNode = FocusNode();
+
+  bool _isPickingImage = false;
 
   // ============================================================
   // INIT
@@ -193,6 +198,31 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
   }
 
   // ============================================================
+  // COLOR PICKER
+  // ============================================================
+
+  void _openColorPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      requestFocus: false,
+      builder: (_) {
+        return ColorPickerBottomSheet(
+          controller: _fleatherController,
+          onColorChanged: () {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+
+              _fleatherFocusNode.requestFocus();
+            });
+          },
+        );
+      },
+    );
+  }
+
+  // ============================================================
   // CHECKLIST
   // ============================================================
 
@@ -279,18 +309,35 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
   // IMAGE
   // ============================================================
 
-  void _addImageBlock() {
-    _saveFleatherDocument();
+  Future<void> _addImageBlock() async {
+    if (_isPickingImage) return;
 
-    setState(() {
-      _blocks.add(const NoteBlock(type: NoteBlockType.image));
+    _isPickingImage = true;
 
-      _blockKeys.add(UniqueKey());
-    });
+    try {
+      _saveFleatherDocument();
 
-    _notifyChanged();
+      final ImagePicker picker = ImagePicker();
+
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+      if (!mounted || image == null) {
+        return;
+      }
+
+      setState(() {
+        _blocks.add(NoteBlock(type: NoteBlockType.image, imageUrl: image.path));
+
+        _blockKeys.add(UniqueKey());
+      });
+
+      _notifyChanged();
+    } catch (e) {
+      debugPrint('Image picker error: $e');
+    } finally {
+      _isPickingImage = false;
+    }
   }
-
   // ============================================================
   // REMOVE
   // ============================================================
@@ -392,26 +439,34 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
   // ============================================================
 
   Widget _buildImageBlock(NoteBlock block, int index) {
+    final imagePath = block.imageUrl;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Container(
-        height: 160,
+        height: 200,
         width: double.infinity,
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           color: const Color(0xFF202126),
         ),
         child: Stack(
+          fit: StackFit.expand,
           children: [
-            const Center(
-              child: Icon(Icons.image_outlined, color: Colors.grey, size: 40),
-            ),
+            if (imagePath != null && imagePath.isNotEmpty)
+              Image.file(File(imagePath), fit: BoxFit.cover)
+            else
+              const Center(
+                child: Icon(Icons.image_outlined, color: Colors.grey, size: 40),
+              ),
+
             Positioned(
               right: 4,
               top: 4,
               child: IconButton(
                 onPressed: () => _removeBlock(index),
-                icon: const Icon(Icons.close, color: Colors.grey),
+                icon: const Icon(Icons.close, color: Colors.white),
               ),
             ),
           ],
@@ -568,6 +623,18 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
                   onPressed: _addImageBlock,
                   icon: const Icon(
                     Icons.image_outlined,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+
+                // =================================================
+                // COLOR
+                // =================================================
+                IconButton(
+                  onPressed: _openColorPicker,
+                  icon: const Icon(
+                    Icons.palette_outlined,
                     color: Colors.white,
                     size: 22,
                   ),
