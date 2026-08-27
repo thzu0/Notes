@@ -5,6 +5,8 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import 'package:notes_app/core/note_colors.dart';
 import 'package:notes_app/core/note_text_style.dart';
+import 'package:notes_app/core/app_security_service.dart';
+
 import 'package:notes_app/data/database/repositories/folder_repository.dart';
 import 'package:notes_app/data/database/repositories/note_repository.dart';
 
@@ -17,6 +19,7 @@ import 'package:notes_app/features/notes/presentation/pages/create_note_page.dar
 import 'package:notes_app/features/notes/presentation/pages/feedback_page.dart';
 import 'package:notes_app/features/notes/presentation/pages/folder_notes_page.dart';
 import 'package:notes_app/features/notes/presentation/pages/search_page.dart';
+import 'package:notes_app/features/notes/presentation/pages/security_pin_page.dart';
 
 import 'package:notes_app/features/notes/presentation/widgets/folder_card_builder.dart';
 import 'package:notes_app/features/notes/presentation/widgets/note_card_builder.dart';
@@ -233,6 +236,408 @@ class _HomePageState extends State<HomePage>
   }
 
   // ============================================================
+  // LOCK / UNLOCK SELECTED NOTES
+  // ============================================================
+
+  Future<void> _toggleLockSelectedNotes() async {
+    // ============================================================
+    // NO SELECTED NOTES
+    // ============================================================
+
+    if (_selectedNoteIds.isEmpty) {
+      return;
+    }
+
+    // ============================================================
+    // GET SELECTED NOTES
+    // ============================================================
+
+    final selectedIds = Set<String>.from(_selectedNoteIds);
+
+    final selectedNotes = notes
+        .where((note) => selectedIds.contains(note.id))
+        .toList();
+
+    if (selectedNotes.isEmpty) {
+      return;
+    }
+
+    // ============================================================
+    // DETERMINE LOCK / UNLOCK
+    // ============================================================
+
+    // اگر همه نوت‌های انتخاب‌شده Lock باشند → Unlock
+    // در غیر این صورت → Lock
+    final bool shouldUnlock = selectedNotes.every((note) => note.isLocked);
+
+    // ============================================================
+    // UNLOCK
+    // ============================================================
+
+    if (shouldUnlock) {
+      final authenticated = await _authenticateToUnlockNote();
+
+      if (!authenticated) {
+        return;
+      }
+    }
+
+    // ============================================================
+    // LOCK
+    // ============================================================
+
+    if (!shouldUnlock) {
+      final security = AppSecurityService.instance;
+
+      // ==========================================================
+      // 1. CHECK PIN
+      // ==========================================================
+
+      final hasPin = await security.hasPin();
+
+      if (!hasPin) {
+        final pinCreated = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(builder: (_) => const SecurityPinPage()),
+        );
+
+        // کاربر PIN نساخت / صفحه را بست
+        if (pinCreated != true) {
+          return;
+        }
+      }
+
+      // ==========================================================
+      // 2. ASK FOR BIOMETRIC
+      // ==========================================================
+
+      final biometricEnabled = await security.isBiometricEnabled();
+
+      if (!biometricEnabled) {
+        await _askToEnableBiometric();
+      }
+    }
+
+    // ============================================================
+    // APPLY LOCK / UNLOCK
+    // ============================================================
+
+    for (final note in selectedNotes) {
+      final updatedNote = Note(
+        id: note.id,
+        title: note.title,
+        content: note.content,
+        type: note.type,
+        folderld: note.folderld,
+        createdAt: note.createdAt,
+        imageUrl: note.imageUrl,
+        checklistitems: note.checklistitems,
+        reminderTime: note.reminderTime,
+        blocks: note.blocks,
+
+        // حفظ Pin
+        isPinned: note.isPinned,
+
+        // تغییر Lock
+        isLocked: !shouldUnlock,
+      );
+
+      // ==========================================================
+      // SAVE DATABASE
+      // ==========================================================
+
+      await _noteRepository.updateNote(updatedNote);
+
+      // ==========================================================
+      // UPDATE LOCAL LIST
+      // ==========================================================
+
+      final index = notes.indexWhere((item) => item.id == note.id);
+
+      if (index != -1) {
+        notes[index] = updatedNote;
+      }
+    }
+
+    // ============================================================
+    // EXIT SELECTION MODE
+    // ============================================================
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _selectedNoteIds.clear();
+      _isSelectionMode = false;
+    });
+  }
+
+  // ============================================================
+  // AUTH TO UNLOCK NOTE
+  // ============================================================
+
+  Future<bool> _authenticateToUnlockNote() async {
+    final security = AppSecurityService.instance;
+
+    // ==========================================================
+    // 1. BIOMETRIC
+    // ==========================================================
+
+    final biometricEnabled = await security.isBiometricEnabled();
+
+    final canUseBiometric = await security.canUseBiometrics();
+
+    if (biometricEnabled && canUseBiometric) {
+      final authenticated = await security.authenticateWithBiometrics();
+
+      if (authenticated) {
+        return true;
+      }
+    }
+
+    // ==========================================================
+    // 2. FALLBACK TO PIN
+    // ==========================================================
+
+    return await _authenticateWithPin();
+  }
+
+  // ============================================================
+  // AUTH PIN
+  // ============================================================
+
+  Future<bool> _authenticateWithPin() async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        final controller = TextEditingController();
+
+        String? errorMessage;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Unlock Note'),
+              content: TextField(
+                controller: controller,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                obscureText: true,
+                maxLength: 4,
+                style: const TextStyle(fontSize: 20, letterSpacing: 6),
+                decoration: InputDecoration(
+                  labelText: 'PIN',
+                  counterText: '',
+                  errorText: errorMessage,
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop(false);
+                  },
+                  child: const Text('Cancel'),
+                ),
+
+                TextButton(
+                  onPressed: () async {
+                    final pin = controller.text.trim();
+
+                    if (pin.length != 4) {
+                      setDialogState(() {
+                        errorMessage = 'Enter your 4-digit PIN.';
+                      });
+
+                      return;
+                    }
+
+                    final valid = await AppSecurityService.instance.verifyPin(
+                      pin,
+                    );
+
+                    if (!valid) {
+                      setDialogState(() {
+                        errorMessage = 'Incorrect PIN.';
+                      });
+
+                      controller.clear();
+                      return;
+                    }
+
+                    if (!dialogContext.mounted) {
+                      return;
+                    }
+
+                    Navigator.of(dialogContext).pop(true);
+                  },
+                  child: const Text('Unlock'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    return result == true;
+  }
+
+  // ============================================================
+  // ASK TO ENABLE BIOMETRIC
+  // ============================================================
+
+  Future<void> _askToEnableBiometric() async {
+    final security = AppSecurityService.instance;
+
+    // ============================================================
+    // ASK ONLY ONCE
+    // ============================================================
+
+    final alreadyAsked = await security.hasAskedBiometricPrompt();
+
+    if (alreadyAsked || !mounted) {
+      return;
+    }
+
+    // ============================================================
+    // MARK PROMPT AS SHOWN
+    // ============================================================
+
+    await security.setBiometricPromptShown();
+
+    if (!mounted) {
+      return;
+    }
+
+    // ============================================================
+    // ASK USER
+    // ============================================================
+
+    final shouldEnable = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Use Biometric?'),
+          content: const Text(
+            'Would you like to use fingerprint or Face '
+            'authentication to unlock your locked notes?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
+              child: const Text('Not now'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
+              child: const Text('Enable'),
+            ),
+          ],
+        );
+      },
+    );
+
+    // ============================================================
+    // NOT NOW
+    // ============================================================
+
+    if (shouldEnable != true) {
+      return;
+    }
+
+    // ============================================================
+    // CHECK BIOMETRIC SUPPORT ONLY AFTER ENABLE
+    // ============================================================
+
+    final canUseBiometric = await security.canUseBiometrics();
+
+    if (!canUseBiometric || !mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Biometric authentication is not available on this device.',
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    // ============================================================
+    // AUTHENTICATE
+    // ============================================================
+
+    final authenticated = await security.authenticateWithBiometrics();
+
+    if (!authenticated) {
+      return;
+    }
+
+    // ============================================================
+    // ENABLE
+    // ============================================================
+
+    await security.setBiometricEnabled(true);
+  }
+
+  // ============================================================
+  // PIN / UNPIN SELECTED NOTES
+  // ============================================================
+
+  Future<void> _togglePinSelectedNotes() async {
+    if (_selectedNoteIds.isEmpty) {
+      return;
+    }
+
+    final selectedIds = Set<String>.from(_selectedNoteIds);
+
+    final selectedNotes = notes
+        .where((note) => selectedIds.contains(note.id))
+        .toList();
+
+    final bool shouldUnpin =
+        selectedNotes.isNotEmpty &&
+        selectedNotes.every((note) => note.isPinned);
+
+    for (final note in selectedNotes) {
+      final updatedNote = Note(
+        id: note.id,
+        title: note.title,
+        content: note.content,
+        type: note.type,
+        folderld: note.folderld,
+        createdAt: note.createdAt,
+        imageUrl: note.imageUrl,
+        checklistitems: note.checklistitems,
+        reminderTime: note.reminderTime,
+        blocks: note.blocks,
+
+        isPinned: !shouldUnpin,
+        isLocked: note.isLocked,
+      );
+
+      await _noteRepository.updateNote(updatedNote);
+
+      final index = notes.indexWhere((item) => item.id == note.id);
+
+      if (index != -1) {
+        notes[index] = updatedNote;
+      }
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _selectedNoteIds.clear();
+      _isSelectionMode = false;
+    });
+  }
+
+  // ============================================================
   // REMINDER CHECKLIST
   // ============================================================
 
@@ -249,7 +654,9 @@ class _HomePageState extends State<HomePage>
 
     final items = List<ChecklistItem>.from(note.checklistitems ?? []);
 
-    if (itemIndex >= items.length) return;
+    if (itemIndex >= items.length) {
+      return;
+    }
 
     items[itemIndex] = ChecklistItem(
       title: items[itemIndex].title,
@@ -267,6 +674,8 @@ class _HomePageState extends State<HomePage>
       checklistitems: items,
       reminderTime: note.reminderTime,
       blocks: note.blocks,
+      isPinned: note.isPinned,
+      isLocked: note.isLocked,
     );
 
     await _noteRepository.updateNote(updatedNote);
@@ -295,7 +704,9 @@ class _HomePageState extends State<HomePage>
 
     final blocks = List<NoteBlock>.from(note.blocks);
 
-    if (blockIndex >= blocks.length) return;
+    if (blockIndex >= blocks.length) {
+      return;
+    }
 
     final block = blocks[blockIndex];
 
@@ -319,6 +730,8 @@ class _HomePageState extends State<HomePage>
       checklistitems: note.checklistitems,
       reminderTime: note.reminderTime,
       blocks: blocks,
+      isPinned: note.isPinned,
+      isLocked: note.isLocked,
     );
 
     await _noteRepository.updateNote(updatedNote);
@@ -335,17 +748,38 @@ class _HomePageState extends State<HomePage>
   // ============================================================
 
   Future<void> _editNote(Note note) async {
+    // Note معمولی
+    if (!note.isLocked) {
+      await _openNoteEditor(note);
+      return;
+    }
+
+    // Note قفل‌شده → احراز هویت
+    final authenticated = await _authenticateToUnlockNote();
+
+    if (!authenticated) {
+      return;
+    }
+
+    await _openNoteEditor(note);
+  }
+
+  Future<void> _openNoteEditor(Note note) async {
     final Note? updatedNote = await Navigator.of(context).push<Note>(
       MaterialPageRoute(
         builder: (context) => CreateNotePage(existingNote: note),
       ),
     );
 
-    if (updatedNote == null) return;
+    if (updatedNote == null) {
+      return;
+    }
 
     final noteIndex = notes.indexWhere((n) => n.id == note.id);
 
-    if (noteIndex == -1) return;
+    if (noteIndex == -1) {
+      return;
+    }
 
     await _noteRepository.updateNote(updatedNote);
 
@@ -370,9 +804,12 @@ class _HomePageState extends State<HomePage>
       },
     );
 
-    if (result == null) return;
+    if (result == null) {
+      return;
+    }
 
     final String name = result['name'] as String;
+
     final Color color = result['color'] as Color;
 
     final Folder newFolder = Folder(
@@ -391,7 +828,7 @@ class _HomePageState extends State<HomePage>
   }
 
   // ============================================================
-  // DELETE FOLDER
+  // FOLDER ACTIONS
   // ============================================================
 
   Future<void> _showFolderActions(Folder folder) async {
@@ -467,6 +904,34 @@ class _HomePageState extends State<HomePage>
 
                 const Divider(color: Color(0xFF2A2D35), height: 1),
 
+                // ==================================================
+                // EDIT FOLDER
+                // ==================================================
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.edit_outlined,
+                    color: AppColors.textPriamry,
+                    size: 26,
+                  ),
+                  title: const Text(
+                    'Edit Folder',
+                    style: TextStyle(
+                      color: AppColors.textPriamry,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.of(context).pop('edit');
+                  },
+                ),
+
+                const Divider(color: Color(0xFF2A2D35), height: 1),
+
+                // ==================================================
+                // DELETE FOLDER
+                // ==================================================
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(
@@ -489,6 +954,9 @@ class _HomePageState extends State<HomePage>
 
                 const Divider(color: Color(0xFF2A2D35), height: 1),
 
+                // ==================================================
+                // CANCEL
+                // ==================================================
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(
@@ -515,8 +983,53 @@ class _HomePageState extends State<HomePage>
       },
     );
 
-    if (action == 'delete') {
+    if (action == 'edit') {
+      await _editFolder(folder);
+    } else if (action == 'delete') {
       await _confirmDeleteFolder(folder);
+    }
+  }
+
+  // ============================================================
+  // EDIT FOLDER
+  // ============================================================
+
+  Future<void> _editFolder(Folder folder) async {
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) {
+        return CreateFolderBottomSheet(existingFolder: folder);
+      },
+    );
+
+    if (result == null) {
+      return;
+    }
+
+    final String name = result['name'] as String;
+
+    final Color color = result['color'] as Color;
+
+    final Folder updatedFolder = Folder(
+      id: folder.id,
+      name: name,
+      colorValue: color,
+    );
+
+    // مهم:
+    // برای Edit از updateFolder استفاده می‌کنیم.
+    await _folderRepository.updateFolder(updatedFolder);
+
+    if (!mounted) return;
+
+    final index = folders.indexWhere((item) => item.id == folder.id);
+
+    if (index != -1) {
+      setState(() {
+        folders[index] = updatedFolder;
+      });
     }
   }
 
@@ -589,13 +1102,15 @@ class _HomePageState extends State<HomePage>
       },
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true) {
+      return;
+    }
 
     await _deleteFolder(folder);
   }
 
   // ============================================================
-  // DELETE FOLDER FROM DATABASE
+  // DELETE FOLDER
   // ============================================================
 
   Future<void> _deleteFolder(Folder folder) async {
@@ -604,7 +1119,7 @@ class _HomePageState extends State<HomePage>
         .toList();
 
     // ----------------------------------------------------------
-    // Remove folder relation from notes
+    // REMOVE FOLDER RELATION FROM NOTES
     // ----------------------------------------------------------
 
     for (final note in affectedNotes) {
@@ -619,6 +1134,8 @@ class _HomePageState extends State<HomePage>
         checklistitems: note.checklistitems,
         reminderTime: note.reminderTime,
         blocks: note.blocks,
+        isPinned: note.isPinned,
+        isLocked: note.isLocked,
       );
 
       await _noteRepository.updateNote(updatedNote);
@@ -631,7 +1148,7 @@ class _HomePageState extends State<HomePage>
     }
 
     // ----------------------------------------------------------
-    // Delete folder from Isar
+    // DELETE FOLDER FROM ISAR
     // ----------------------------------------------------------
 
     await _folderRepository.deleteFolder(folder.id);
@@ -648,7 +1165,7 @@ class _HomePageState extends State<HomePage>
   }
 
   // ============================================================
-  // FOLDER TAP
+  // OPEN FOLDER
   // ============================================================
 
   void _openFolder(Folder folder) {
@@ -681,7 +1198,9 @@ class _HomePageState extends State<HomePage>
 
             final index = notes.indexWhere((note) => note.id == updatedNote.id);
 
-            if (index == -1) return;
+            if (index == -1) {
+              return;
+            }
 
             setState(() {
               notes[index] = updatedNote;
@@ -694,7 +1213,9 @@ class _HomePageState extends State<HomePage>
           onNoteDeleted: (noteId) async {
             final index = notes.indexWhere((note) => note.id == noteId);
 
-            if (index == -1) return;
+            if (index == -1) {
+              return;
+            }
 
             setState(() {
               notes.removeAt(index);
@@ -735,6 +1256,103 @@ class _HomePageState extends State<HomePage>
 
         actions: _isSelectionMode
             ? [
+                // ==================================================
+                // PIN / LOCK MENU
+                // ==================================================
+                PopupMenuButton<String>(
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(Icons.more_vert),
+                  iconSize: 30,
+                  iconColor: AppColors.textMuted,
+
+                  menuPadding: const EdgeInsets.all(8),
+
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+
+                  onSelected: (value) {
+                    if (value == 'pin') {
+                      _togglePinSelectedNotes();
+                    } else if (value == 'lock') {
+                      _toggleLockSelectedNotes();
+                    }
+                  },
+
+                  itemBuilder: (context) {
+                    final selectedNotes = notes
+                        .where((note) => _selectedNoteIds.contains(note.id))
+                        .toList();
+
+                    final bool allPinned =
+                        selectedNotes.isNotEmpty &&
+                        selectedNotes.every((note) => note.isPinned);
+
+                    final bool allLocked =
+                        selectedNotes.isNotEmpty &&
+                        selectedNotes.every((note) => note.isLocked);
+
+                    return [
+                      // ============================================
+                      // PIN
+                      // ============================================
+                      PopupMenuItem<String>(
+                        value: 'pin',
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.push_pin_outlined,
+                              color: AppColors.textPriamry,
+                              size: 22,
+                            ),
+
+                            const SizedBox(width: 12),
+
+                            Text(
+                              allPinned ? 'Unpin' : 'Pin',
+                              style: const TextStyle(
+                                color: AppColors.textPriamry,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // ============================================
+                      // LOCK
+                      // ============================================
+                      PopupMenuItem<String>(
+                        value: 'lock',
+                        child: Row(
+                          children: [
+                            Icon(
+                              allLocked
+                                  ? Icons.lock_open_outlined
+                                  : Icons.lock_outline,
+                              color: AppColors.textPriamry,
+                              size: 22,
+                            ),
+
+                            const SizedBox(width: 12),
+
+                            Text(
+                              allLocked ? 'Unlock' : 'Lock',
+                              style: const TextStyle(
+                                color: AppColors.textPriamry,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ];
+                  },
+                ),
+
+                // ==================================================
+                // DELETE
+                // ==================================================
                 IconButton(
                   icon: const Icon(Icons.delete_outline),
                   iconSize: 28,
@@ -742,6 +1360,9 @@ class _HomePageState extends State<HomePage>
                 ),
               ]
             : [
+                // ==================================================
+                // SEARCH
+                // ==================================================
                 IconButton(
                   padding: EdgeInsets.zero,
                   style: IconButton.styleFrom(
@@ -757,15 +1378,21 @@ class _HomePageState extends State<HomePage>
                   icon: const Icon(Icons.search, size: 30),
                 ),
 
+                // ==================================================
+                // MORE
+                // ==================================================
                 PopupMenuButton(
                   padding: EdgeInsets.zero,
                   icon: const Icon(Icons.more_vert_outlined),
                   iconSize: 30,
                   iconColor: AppColors.textMuted,
+
                   menuPadding: const EdgeInsets.all(8),
+
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),
+
                   itemBuilder: (context) => [
                     PopupMenuItem(
                       value: 'feedback',
@@ -799,32 +1426,23 @@ class _HomePageState extends State<HomePage>
         // ========================================================
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(75),
-
           child: ClipRect(
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 1, sigmaY: 20),
-
               child: Container(
                 color: Colors.white.withValues(alpha: 0),
-
                 child: Padding(
                   padding: const EdgeInsets.only(top: 10),
-
                   child: TabBar(
                     controller: _tabController,
                     dividerColor: Colors.transparent,
                     indicatorColor: const Color(0xFFF5C65D),
                     indicatorWeight: 3,
                     indicatorSize: TabBarIndicatorSize.label,
-
                     labelColor: const Color(0xFFF5C65D),
-
                     unselectedLabelColor: Colors.grey,
-
                     labelStyle: NoteTextStyle.tabActive,
-
                     unselectedLabelStyle: NoteTextStyle.tabInactive,
-
                     tabs: const [
                       Tab(text: 'All'),
                       Tab(text: 'Folder'),
@@ -843,26 +1461,18 @@ class _HomePageState extends State<HomePage>
       body: SafeArea(
         child: TabBarView(
           controller: _tabController,
-
           children: [
             // ====================================================
             // ALL NOTES
             // ====================================================
             AllNotesView(
               notes: notes,
-
               onReminderItemChanged: _updateReminderItem,
-
               onBlockChecklistChanged: _updateBlockChecklistItem,
-
               onNoteTap: _editNote,
-
               onNoteLongPress: _enterSelectionMode,
-
               onNoteSelect: _toggleNoteSelection,
-
               isSelectionMode: _isSelectionMode,
-
               selectedNoteIds: _selectedNoteIds,
             ),
 
@@ -889,9 +1499,9 @@ class _HomePageState extends State<HomePage>
                 shape: const CircleBorder(),
 
                 onPressed: () async {
-                  // ==========================================
+                  // ========================================
                   // ALL TAB
-                  // ==========================================
+                  // ========================================
 
                   if (_tabController.index == 0) {
                     final Note? newNote = await Navigator.of(context)
@@ -904,7 +1514,9 @@ class _HomePageState extends State<HomePage>
                     if (newNote != null) {
                       await _noteRepository.saveNote(newNote);
 
-                      if (!mounted) return;
+                      if (!mounted) {
+                        return;
+                      }
 
                       setState(() {
                         notes.add(newNote);
@@ -914,9 +1526,9 @@ class _HomePageState extends State<HomePage>
                     return;
                   }
 
-                  // ==========================================
+                  // ========================================
                   // FOLDER TAB
-                  // ==========================================
+                  // ========================================
 
                   await _createFolder();
                 },
@@ -975,13 +1587,10 @@ class AllNotesView extends StatelessWidget {
 
     return MasonryGridView.count(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-
       crossAxisCount: 2,
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
-
       itemCount: notes.length,
-
       itemBuilder: (context, index) {
         final Note note = notes[index];
 
@@ -993,7 +1602,6 @@ class AllNotesView extends StatelessWidget {
               onNoteLongPress?.call(note.id);
             }
           },
-
           onTap: () {
             if (isSelectionMode) {
               onNoteSelect?.call(note.id);
@@ -1002,16 +1610,13 @@ class AllNotesView extends StatelessWidget {
 
             onNoteTap?.call(note);
           },
-
           child: Stack(
             children: [
               NoteCardBuilder(
                 note: note,
-
                 onReminderItemChanged: (itemIndex, value) async {
                   await onReminderItemChanged?.call(note.id, itemIndex, value);
                 },
-
                 onBlockChecklistChanged: (blockIndex, value) async {
                   await onBlockChecklistChanged?.call(
                     note.id,
@@ -1024,7 +1629,7 @@ class AllNotesView extends StatelessWidget {
               if (isSelected)
                 Positioned(
                   top: 8,
-                  right: 8,
+                  left: 8,
                   child: Container(
                     width: 30,
                     height: 30,
@@ -1074,12 +1679,8 @@ class FolderView extends StatelessWidget {
 
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-
       itemCount: folders.length,
 
-      // ==========================================================
-      // ORIGINAL FOLDER SIZING
-      // ==========================================================
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         crossAxisSpacing: 12,
@@ -1094,14 +1695,9 @@ class FolderView extends StatelessWidget {
           onLongPress: () {
             onFolderLongPress?.call(folder);
           },
-
           onTap: () {
             onFolderTap?.call(folder);
           },
-
-          // ======================================================
-          // ORIGINAL CARD - UNCHANGED
-          // ======================================================
           child: FolderCardBuilder(folder: folder),
         );
       },

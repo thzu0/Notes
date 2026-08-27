@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 
+import 'package:notes_app/features/notes/model/model_folder.dart';
+
 class CreateFolderBottomSheet extends StatefulWidget {
-  const CreateFolderBottomSheet({super.key});
+  final Folder? existingFolder;
+
+  const CreateFolderBottomSheet({super.key, this.existingFolder});
+
+  bool get isEditing => existingFolder != null;
 
   @override
   State<CreateFolderBottomSheet> createState() =>
@@ -16,6 +22,7 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
   static const Color _selectedBlue = Color(0xFF2F6FED);
 
   final TextEditingController _nameController = TextEditingController();
+
   final FocusNode _nameFocusNode = FocusNode();
 
   final List<Color> _folderColors = const [
@@ -39,30 +46,65 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
   void initState() {
     super.initState();
 
-    _selectedColor = _folderColors.first;
+    // ==========================================================
+    // INITIAL VALUES
+    // ==========================================================
+
+    _selectedColor = widget.existingFolder?.colorValue ?? _folderColors.first;
+
+    _nameController.text = widget.existingFolder?.name ?? '';
+
+    // ==========================================================
+    // LISTENER
+    // ==========================================================
 
     _nameController.addListener(_onNameChanged);
+
+    // ==========================================================
+    // AUTO FOCUS
+    // ==========================================================
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _nameFocusNode.requestFocus();
+
+        // انتخاب کامل اسم قبلی هنگام Edit
+        if (widget.isEditing) {
+          _nameController.selection = TextSelection(
+            baseOffset: 0,
+            extentOffset: _nameController.text.length,
+          );
+        }
       }
     });
   }
 
+  // ============================================================
+  // NAME CHANGED
+  // ============================================================
+
   void _onNameChanged() {
     setState(() {});
   }
+
+  // ============================================================
+  // DISPOSE
+  // ============================================================
 
   @override
   void dispose() {
     _nameController.removeListener(_onNameChanged);
     _nameController.dispose();
     _nameFocusNode.dispose();
+
     super.dispose();
   }
 
-  void _handleCreate() {
+  // ============================================================
+  // SAVE / CREATE
+  // ============================================================
+
+  void _handleSave() {
     final String name = _nameController.text.trim();
 
     if (name.isEmpty) {
@@ -71,6 +113,10 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
 
     Navigator.of(context).pop({'name': name, 'color': _selectedColor});
   }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
@@ -105,9 +151,9 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
                   // ==================================================
                   Row(
                     children: [
-                      const Text(
-                        'New Folder',
-                        style: TextStyle(
+                      Text(
+                        widget.isEditing ? 'Edit Folder' : 'New Folder',
+                        style: const TextStyle(
                           color: _textColor,
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
@@ -141,7 +187,7 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
                       style: const TextStyle(color: _textColor, fontSize: 16),
                       textInputAction: TextInputAction.done,
                       onSubmitted: (_) {
-                        _handleCreate();
+                        _handleSave();
                       },
                       decoration: const InputDecoration(
                         hintText: 'Folder name',
@@ -178,7 +224,8 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
                     spacing: 14,
                     runSpacing: 12,
                     children: _folderColors.map((color) {
-                      final bool isSelected = color == _selectedColor;
+                      final bool isSelected =
+                          color.value == _selectedColor.value;
 
                       return GestureDetector(
                         onTap: () {
@@ -211,13 +258,13 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
                   const SizedBox(height: 24),
 
                   // ==================================================
-                  // CREATE BUTTON
+                  // SAVE / CREATE BUTTON
                   // ==================================================
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: _isNameValid ? _handleCreate : null,
+                      onPressed: _isNameValid ? _handleSave : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _selectedBlue,
                         disabledBackgroundColor: _fieldBg,
@@ -226,9 +273,9 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text(
-                        'Create',
-                        style: TextStyle(
+                      child: Text(
+                        widget.isEditing ? 'Save' : 'Create',
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,

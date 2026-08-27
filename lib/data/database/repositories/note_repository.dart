@@ -155,6 +155,8 @@ class NoteRepository {
       ..folderId = note.folderld
       ..createdAt = note.createdAt
       ..imageUrl = note.imageUrl
+      ..isPinned = note.isPinned
+      ..isLocked = note.isLocked
       ..reminderTime = note.reminderTime
       ..checklistItems = (note.checklistitems ?? [])
           .map(
@@ -188,6 +190,8 @@ class NoteRepository {
       folderld: noteDb.folderId,
       createdAt: noteDb.createdAt,
       imageUrl: noteDb.imageUrl,
+      isPinned: noteDb.isPinned,
+      isLocked: noteDb.isLocked,
       reminderTime: noteDb.reminderTime,
       checklistitems: noteDb.checklistItems
           .map((item) => ChecklistItem(title: item.title, isDone: item.isDone))

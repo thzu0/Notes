@@ -10,6 +10,8 @@ class Note {
   final String? folderld;
   final DateTime createdAt;
   final String? imageUrl;
+  final bool isPinned;
+  final bool isLocked;
 
   final List<ChecklistItem>? checklistitems;
   final DateTime? reminderTime;
@@ -27,6 +29,8 @@ class Note {
     this.checklistitems,
     this.reminderTime,
     this.blocks = const [],
+    this.isPinned = false,
+    this.isLocked = false,
   });
 }
 

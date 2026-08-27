@@ -27,6 +27,9 @@ class NoteDb {
 
   String? imageUrl;
 
+  bool isPinned = false;
+  bool isLocked = false;
+
   DateTime? reminderTime;
 
   late List<ChecklistItemDb> checklistItems;

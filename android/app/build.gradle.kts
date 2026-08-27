@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.notes_app"
-    compileSdk = 36
+    compileSdk = 37
     ndkVersion = "28.2.13676358"
 
     compileOptions {

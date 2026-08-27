@@ -16,7 +16,7 @@ import 'package:notes_app/features/notes/presentation/widgets/reminder_time_pick
 /// Reminder ساختار اختصاصی خودش را دارد:
 /// - Task
 /// - Reminder Time
-///
+///ff
 /// بقیه Tagها از FreeNoteEditor استفاده می‌کنند و می‌توانند
 /// چند نوع Block مختلف مثل Text / Checklist / Quote / Image داشته باشند.
 class CreateNotePage extends StatefulWidget {
@@ -310,6 +310,9 @@ class _CreateNotePageState extends State<CreateNotePage> {
       blocks: selectedType == NoteType.reminder
           ? const []
           : List<NoteBlock>.from(_noteBlocks),
+
+      isPinned: existing?.isPinned ?? false,
+      isLocked: existing?.isLocked ?? false,
     );
 
     Navigator.pop(context, note);

@@ -25,6 +25,7 @@ class BlockNoteCard extends StatelessWidget {
   // ============================================================
   // IMAGE NOTE CARD
   // ============================================================
+
   Widget _buildImageNoteCard(NoteBlock imageBlock) {
     final imagePath = imageBlock.imageUrl;
 
@@ -89,16 +90,33 @@ class BlockNoteCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (note.title.isNotEmpty) ...[
-                  Text(
-                    note.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: NoteTextStyle.headingTitleCard,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (note.title.isNotEmpty)
+                      Expanded(
+                        child: Text(
+                          note.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: NoteTextStyle.headingTitleCard,
+                        ),
+                      )
+                    else
+                      const Spacer(),
 
-                  const SizedBox(height: 8),
-                ],
+                    if (note.isPinned) ...[
+                      if (note.title.isNotEmpty) const SizedBox(width: 8),
+                      const Icon(
+                        Icons.push_pin,
+                        size: 17,
+                        color: Color(0xFFF5C65D),
+                      ),
+                    ],
+                  ],
+                ),
+
+                const SizedBox(height: 8),
 
                 if (textBlock != null) _buildRichTextPreview(textBlock),
 
@@ -156,7 +174,6 @@ class BlockNoteCard extends StatelessWidget {
         ),
       );
     } catch (_) {
-      // اگر JSON خراب بود، حداقل plain text نمایش داده شود.
       return Padding(
         padding: const EdgeInsets.only(bottom: 6),
         child: Text(
@@ -291,21 +308,114 @@ class BlockNoteCard extends StatelessWidget {
   }
 
   // ============================================================
+  // LOCKED NOTE
+  // ============================================================
+
+  Widget _buildLockedCard() {
+    return AspectRatio(
+      aspectRatio: 1,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.darkCardBackground,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Column(
+          children: [
+            Expanded(
+              child: Stack(
+                children: [
+                  // Title + Pin
+                  Align(
+                    alignment: Alignment.topLeft,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            note.title.isNotEmpty ? note.title : 'Locked Note',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: NoteTextStyle.headingTitleCard.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+
+                        if (note.isPinned) ...[
+                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.push_pin_rounded,
+                            size: 18,
+                            color: Color(0xFFF5C65D),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+
+                  // Lock وسط کارت
+                  const Center(
+                    child: Icon(
+                      Icons.lock_rounded,
+                      size: 50,
+                      color: AppColors.textSecondery,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 4),
+
+            // اطلاعات پایین کارت
+            NoteMeta(note: note),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
   // BUILD
   // ============================================================
 
   @override
   Widget build(BuildContext context) {
+    // ==========================================================
+    // LOCKED NOTE
+    // ==========================================================
+
+    if (note.isLocked) {
+      return _buildLockedCard();
+    }
+
+    // ==========================================================
+    // PREVIEW BLOCKS
+    // ==========================================================
+
     final previewBlocks = note.blocks.take(_maxPreviewBlocks).toList();
+
+    // ==========================================================
+    // FIND IMAGE BLOCK
+    // ==========================================================
 
     final imageBlock = note.blocks.cast<NoteBlock?>().firstWhere(
       (block) => block?.type == NoteBlockType.image,
       orElse: () => null,
     );
 
+    // ==========================================================
+    // IMAGE NOTE
+    // ==========================================================
+
     if (note.type == NoteType.image && imageBlock != null) {
       return _buildImageNoteCard(imageBlock);
     }
+
+    // ==========================================================
+    // NORMAL NOTE
+    // ==========================================================
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -316,20 +426,34 @@ class BlockNoteCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
+        children: [
           // ======================================================
           // TITLE
           // ======================================================
-          if (note.title.isNotEmpty) ...[
-            Text(
-              note.title,
-              style: NoteTextStyle.headingTitleCard,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (note.title.isNotEmpty)
+                Expanded(
+                  child: Text(
+                    note.title,
+                    style: NoteTextStyle.headingTitleCard,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                )
+              else
+                const Spacer(),
 
-            const SizedBox(height: 10),
-          ],
+              if (note.isPinned) ...[
+                if (note.title.isNotEmpty) const SizedBox(width: 8),
+
+                const Icon(Icons.push_pin, size: 17, color: Color(0xFFF5C65D)),
+              ],
+            ],
+          ),
+
+          const SizedBox(height: 10),
 
           // ======================================================
           // BLOCKS
