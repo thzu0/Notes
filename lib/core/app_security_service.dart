@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
 
@@ -8,6 +9,10 @@ class AppSecurityService {
 
   static const String _pinKey = 'app_security_pin';
   static const String _biometricKey = 'app_security_biometric_enabled';
+
+  static const String _biometricPromptKey =
+      'app_security_biometric_prompt_shown';
+
   final LocalAuthentication _localAuth = LocalAuthentication();
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
@@ -20,32 +25,48 @@ class AppSecurityService {
     try {
       final isSupported = await _localAuth.isDeviceSupported();
 
+      debugPrint('DEVICE SUPPORT = $isSupported');
+
       if (!isSupported) {
         return false;
       }
 
       final available = await _localAuth.getAvailableBiometrics();
 
+      debugPrint('AVAILABLE BIOMETRICS = $available');
+
       return available.isNotEmpty;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('BIOMETRIC SUPPORT ERROR = $e');
       return false;
     }
   }
+
+  // ============================================================
+  // BIOMETRIC AUTHENTICATION
+  // ============================================================
 
   Future<bool> authenticateWithBiometrics() async {
     try {
       final canUse = await canUseBiometrics();
 
+      debugPrint('BIOMETRIC AVAILABLE = $canUse');
+
       if (!canUse) {
         return false;
       }
 
-      return await _localAuth.authenticate(
+      final authenticated = await _localAuth.authenticate(
         localizedReason: 'Authenticate to unlock your note',
-        biometricOnly: true,
+        biometricOnly: false,
         persistAcrossBackgrounding: true,
       );
-    } catch (_) {
+
+      debugPrint('AUTHENTICATED = $authenticated');
+
+      return authenticated;
+    } catch (e) {
+      debugPrint('BIOMETRIC ERROR = $e');
       return false;
     }
   }
@@ -64,6 +85,7 @@ class AppSecurityService {
 
   Future<bool> hasPin() async {
     final pin = await getPin();
+
     return pin != null && pin.isNotEmpty;
   }
 
@@ -82,24 +104,28 @@ class AppSecurityService {
   }
 
   // ============================================================
-  // BIOMETRIC
+  // BIOMETRIC ENABLE / DISABLE
   // ============================================================
 
   Future<void> setBiometricEnabled(bool enabled) async {
     await _storage.write(key: _biometricKey, value: enabled.toString());
+
+    debugPrint('BIOMETRIC ENABLED SET TO = $enabled');
   }
 
   Future<bool> isBiometricEnabled() async {
     final value = await _storage.read(key: _biometricKey);
 
-    return value == 'true';
+    final enabled = value == 'true';
+
+    debugPrint('BIOMETRIC ENABLED = $enabled');
+
+    return enabled;
   }
+
   // ============================================================
   // BIOMETRIC PROMPT
   // ============================================================
-
-  static const String _biometricPromptKey =
-      'app_security_biometric_prompt_shown';
 
   Future<bool> hasAskedBiometricPrompt() async {
     final value = await _storage.read(key: _biometricPromptKey);

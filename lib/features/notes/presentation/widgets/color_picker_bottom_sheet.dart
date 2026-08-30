@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fleather/fleather.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
 class ColorPickerBottomSheet extends StatefulWidget {
   final FleatherController controller;
@@ -45,6 +46,14 @@ class _ColorPickerBottomSheetState extends State<ColorPickerBottomSheet> {
   Color? _selectedColor;
 
   // ============================================================
+  // CUSTOM COLOR
+  // ============================================================
+
+  Color _customColor = Colors.white;
+
+  bool _showCustomPicker = false;
+
+  // ============================================================
   // APPLY COLOR
   // ============================================================
 
@@ -53,11 +62,37 @@ class _ColorPickerBottomSheetState extends State<ColorPickerBottomSheet> {
       ParchmentAttribute.foregroundColor.withValue(color.value),
     );
 
-    setState(() {
-      _selectedColor = color;
-    });
+    if (mounted) {
+      setState(() {
+        _selectedColor = color;
+        _customColor = color;
+      });
+    }
 
     widget.onColorChanged?.call();
+
+    // بستن Bottom Sheet بعد از انتخاب رنگ
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  // ============================================================
+  // OPEN CUSTOM PICKER
+  // ============================================================
+
+  void _openCustomColorPicker() {
+    setState(() {
+      _showCustomPicker = true;
+    });
+  }
+
+  // ============================================================
+  // APPLY CUSTOM COLOR
+  // ============================================================
+
+  void _applyCustomColor() {
+    _applyColor(_customColor);
   }
 
   // ============================================================
@@ -67,11 +102,17 @@ class _ColorPickerBottomSheetState extends State<ColorPickerBottomSheet> {
   void _removeColor() {
     widget.controller.formatSelection(ParchmentAttribute.foregroundColor.unset);
 
-    setState(() {
-      _selectedColor = null;
-    });
+    if (mounted) {
+      setState(() {
+        _selectedColor = null;
+      });
+    }
 
     widget.onColorChanged?.call();
+
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   // ============================================================
@@ -89,6 +130,7 @@ class _ColorPickerBottomSheetState extends State<ColorPickerBottomSheet> {
         duration: const Duration(milliseconds: 150),
         width: 42,
         height: 42,
+        padding: const EdgeInsets.all(3),
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
@@ -105,7 +147,6 @@ class _ColorPickerBottomSheetState extends State<ColorPickerBottomSheet> {
                 ]
               : null,
         ),
-        padding: const EdgeInsets.all(3),
         child: Container(
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           child: isSelected
@@ -123,7 +164,7 @@ class _ColorPickerBottomSheetState extends State<ColorPickerBottomSheet> {
   }
 
   // ============================================================
-  // RESET COLOR ITEM
+  // RESET ITEM
   // ============================================================
 
   Widget _buildResetItem() {
@@ -162,6 +203,166 @@ class _ColorPickerBottomSheetState extends State<ColorPickerBottomSheet> {
   }
 
   // ============================================================
+  // CUSTOM COLOR ITEM
+  // ============================================================
+
+  Widget _buildCustomColorItem() {
+    return GestureDetector(
+      onTap: _openCustomColorPicker,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 42,
+        height: 42,
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: _showCustomPicker ? Colors.white : Colors.white24,
+            width: _showCustomPicker ? 2.5 : 1,
+          ),
+          boxShadow: _showCustomPicker
+              ? [
+                  BoxShadow(
+                    color: Colors.white.withOpacity(0.25),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
+        ),
+        child: Container(
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: SweepGradient(
+              colors: [
+                Colors.red,
+                Colors.orange,
+                Colors.yellow,
+                Colors.green,
+                Colors.cyan,
+                Colors.blue,
+                Colors.purple,
+                Colors.red,
+              ],
+            ),
+          ),
+          child: const Icon(Icons.colorize, color: Colors.white, size: 19),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // CUSTOM PICKER
+  // ============================================================
+
+  Widget _buildCustomPicker() {
+    return Column(
+      children: [
+        // --------------------------------------------------------
+        // BACK
+        // --------------------------------------------------------
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () {
+              setState(() {
+                _showCustomPicker = false;
+              });
+            },
+            icon: const Icon(Icons.arrow_back, color: Colors.white70, size: 20),
+            label: const Text(
+              'Back to colors',
+              style: TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 6),
+
+        // --------------------------------------------------------
+        // COLOR PICKER
+        // --------------------------------------------------------
+        ColorPicker(
+          pickerColor: _customColor,
+          onColorChanged: (color) {
+            setState(() {
+              _customColor = color;
+            });
+          },
+          enableAlpha: false,
+          displayThumbColor: true,
+          pickerAreaHeightPercent: 0.8,
+        ),
+
+        const SizedBox(height: 12),
+
+        // --------------------------------------------------------
+        // PREVIEW
+        // --------------------------------------------------------
+        Row(
+          children: [
+            const Text(
+              'Selected:',
+              style: TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+
+            const SizedBox(width: 12),
+
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: _customColor,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white24),
+              ),
+            ),
+
+            const Spacer(),
+
+            Text(
+              '#${_customColor.value.toRadixString(16).substring(2).toUpperCase()}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 18),
+
+        // --------------------------------------------------------
+        // APPLY
+        // --------------------------------------------------------
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: TextButton(
+            onPressed: _applyCustomColor,
+            style: TextButton.styleFrom(
+              backgroundColor: const Color(0xFF2A2D35),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            child: const Text(
+              'Apply',
+              style: TextStyle(
+                color: Color(0xFFF5C65D),
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
   // BUILD
   // ============================================================
 
@@ -173,7 +374,7 @@ class _ColorPickerBottomSheetState extends State<ColorPickerBottomSheet> {
 
     final double availableHeight = mediaQuery.size.height - bottomInset;
 
-    final double maxSheetHeight = availableHeight * 0.55;
+    final double maxSheetHeight = availableHeight * 0.75;
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
@@ -207,11 +408,11 @@ class _ColorPickerBottomSheetState extends State<ColorPickerBottomSheet> {
                   // ==================================================
                   // TITLE
                   // ==================================================
-                  const Align(
+                  Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Text Color',
-                      style: TextStyle(
+                      _showCustomPicker ? 'Custom Color' : 'Text Color',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
@@ -222,46 +423,55 @@ class _ColorPickerBottomSheetState extends State<ColorPickerBottomSheet> {
                   const SizedBox(height: 18),
 
                   // ==================================================
-                  // COLOR PALETTE
+                  // CONTENT
                   // ==================================================
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      _buildResetItem(),
+                  if (_showCustomPicker)
+                    _buildCustomPicker()
+                  else ...[
+                    // ================================================
+                    // PALETTE
+                    // ================================================
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        _buildResetItem(),
 
-                      ..._colors.map((color) => _buildColorItem(color)),
-                    ],
-                  ),
+                        ..._colors.map((color) => _buildColorItem(color)),
 
-                  const SizedBox(height: 20),
+                        _buildCustomColorItem(),
+                      ],
+                    ),
 
-                  // ==================================================
-                  // DONE
-                  // ==================================================
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                      style: TextButton.styleFrom(
-                        backgroundColor: const Color(0xFF2A2D35),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                    const SizedBox(height: 20),
+
+                    // ================================================
+                    // DONE
+                    // ================================================
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                        style: TextButton.styleFrom(
+                          backgroundColor: const Color(0xFF2A2D35),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                         ),
-                      ),
-                      child: const Text(
-                        'Done',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
+                        child: const Text(
+                          'Done',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),

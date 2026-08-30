@@ -24,7 +24,7 @@ class _SearchPageState extends State<SearchPage> {
   void initState() {
     super.initState();
 
-    _results = List<Note>.from(widget.notes);
+    _results = _getLatestNotes();
 
     _searchController.addListener(_search);
   }
@@ -38,6 +38,17 @@ class _SearchPageState extends State<SearchPage> {
 
     super.dispose();
   }
+  // ============================================================
+  // LATEST NOTES
+  // ============================================================
+
+  List<Note> _getLatestNotes() {
+    final sortedNotes = List<Note>.from(widget.notes);
+
+    sortedNotes.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    return sortedNotes.take(3).toList();
+  }
 
   // ============================================================
   // SEARCH
@@ -48,7 +59,7 @@ class _SearchPageState extends State<SearchPage> {
 
     if (query.isEmpty) {
       setState(() {
-        _results = List<Note>.from(widget.notes);
+        _results = _getLatestNotes();
       });
 
       return;

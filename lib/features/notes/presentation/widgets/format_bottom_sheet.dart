@@ -48,7 +48,7 @@ class _FormatBottomSheetState extends State<FormatBottomSheet> {
     widget.onFormatChanged?.call();
 
     if (mounted) {
-      setState(() {});
+      Navigator.of(context).pop();
     }
   }
 
@@ -62,7 +62,7 @@ class _FormatBottomSheetState extends State<FormatBottomSheet> {
     widget.onFormatChanged?.call();
 
     if (mounted) {
-      setState(() {});
+      Navigator.of(context).pop();
     }
   }
 
@@ -82,7 +82,7 @@ class _FormatBottomSheetState extends State<FormatBottomSheet> {
     widget.onFormatChanged?.call();
 
     if (mounted) {
-      setState(() {});
+      Navigator.of(context).pop();
     }
   }
 

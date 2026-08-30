@@ -1,70 +1,96 @@
 import 'package:flutter/material.dart';
+
 import 'note_colors.dart';
 
 class NoteTextStyle {
-  //===Headings===
+  // ============================================================
+  // HEADINGS
+  // ============================================================
+
   static const TextStyle headingTitleApp = TextStyle(
-    fontSize: 33,
+    fontFamily: 'Vazirmatn',
+    fontSize: 30,
+    fontWeight: FontWeight.w700,
     color: AppColors.textPriamry,
   );
-  //Notes and Daily Notes style
 
+  // Notes and Daily Notes style
   static const TextStyle headingTitleCard = TextStyle(
-    fontSize: 20,
-    fontWeight: FontWeight.bold,
+    fontFamily: 'Vazirmatn',
+    fontSize: 19,
+    fontWeight: FontWeight.w700,
     color: AppColors.textPriamry,
   );
-  //Title of card like "Reminder" and "Quote Today"
 
-  //===Body===
+  // ============================================================
+  // BODY
+  // ============================================================
+
+  // Font for folder names, checklist items, etc.
   static const TextStyle bodyMedium = TextStyle(
+    fontFamily: 'Vazirmatn',
     fontSize: 15,
     fontWeight: FontWeight.w500,
     color: AppColors.textPriamry,
   );
-  //Font of like name of Folder and Items in checkList
 
+  // Font for secondary text and descriptions
   static const TextStyle bodyRegular = TextStyle(
+    fontFamily: 'Vazirmatn',
     fontSize: 14,
-    fontWeight: FontWeight.normal,
+    fontWeight: FontWeight.w400,
     color: AppColors.textSecondery,
   );
-  //Font of like info of card and decription
 
-  //=== Small / Caption ===
+  // ============================================================
+  // SMALL / CAPTION
+  // ============================================================
+
   static const TextStyle caption = TextStyle(
+    fontFamily: 'Vazirmatn',
     fontSize: 12,
-    fontWeight: FontWeight.normal,
+    fontWeight: FontWeight.w400,
     color: AppColors.textMuted,
   );
-  //Lable of Category and date of card
+
+  // ============================================================
+  // ONBOARDING DESCRIPTION
+  // ============================================================
 
   static const TextStyle descriptionOnboarding = TextStyle(
-    fontSize: 20,
-    fontWeight: FontWeight.normal,
+    fontFamily: 'Vazirmatn',
+    fontSize: 18,
+    fontWeight: FontWeight.w400,
     color: AppColors.textSecondery,
-    height: 1.5, // فاصله بین خطوط، برای خوانایی بهتر متن دو خطی
+    height: 1.5,
   );
-  //Description text under "Daily Notes" title on onboarding page
 
-  //===Buttons===
+  // ============================================================
+  // BUTTONS
+  // ============================================================
+
   static const TextStyle button = TextStyle(
-    fontSize: 22,
+    fontFamily: 'Vazirmatn',
+    fontSize: 16,
     fontWeight: FontWeight.w600,
     color: AppColors.textPriamry,
   );
-  //Text of buttons like "Get Started"
 
-  // ===== Tabs =====
+  // ============================================================
+  // TABS
+  // ============================================================
+
   static const TextStyle tabActive = TextStyle(
-    fontSize: 19,
-    fontWeight: FontWeight.w600,
+    fontFamily: 'Vazirmatn',
+    fontSize: 17,
+    fontWeight: FontWeight.w700,
     color: AppColors.primaryPurple,
-  ); //Like connect tab "All"
+  );
 
   static const TextStyle tabInactive = TextStyle(
-    fontSize: 18,
-    fontWeight: FontWeight.normal,
+    fontFamily: 'Vazirmatn',
+    fontSize: 17,
+    fontWeight: FontWeight.w400,
     color: AppColors.textMuted,
-  ); //Like disconnect tab "Folder"
+  );
 }

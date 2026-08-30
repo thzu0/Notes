@@ -116,7 +116,6 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
       if (existingTextIndex != -1) {
         setState(() {
           _blocks.removeAt(existingTextIndex);
-
           _blockKeys.removeAt(existingTextIndex);
         });
       }
@@ -168,12 +167,6 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
   // ============================================================
 
   void _openFormatBottomSheet() {
-    // مهم:
-    // اینجا selection را تغییر نمی‌دهیم.
-    //
-    // FleatherController خودش selection فعلی را نگه می‌دارد.
-    // فقط اجازه نمی‌دهیم BottomSheet برای خودش focus بگیرد.
-
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -183,9 +176,6 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
         return FormatBottomSheet(
           controller: _fleatherController,
           onFormatChanged: () {
-            // بعد از format دوباره editor را focus می‌کنیم.
-            //
-            // خود selection داخل controller حفظ شده.
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!mounted) return;
 
@@ -338,6 +328,7 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
       _isPickingImage = false;
     }
   }
+
   // ============================================================
   // REMOVE
   // ============================================================
@@ -559,6 +550,7 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
                           ),
                         ),
                       ),
+
                     FleatherEditor(
                       controller: _fleatherController,
                       focusNode: _fleatherFocusNode,
@@ -596,6 +588,7 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
                 // CHECKLIST
                 // =================================================
                 IconButton(
+                  tooltip: 'Checklist',
                   onPressed: _addChecklistBlock,
                   icon: const Icon(
                     Icons.check_box_outlined,
@@ -608,6 +601,7 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
                 // QUOTE
                 // =================================================
                 IconButton(
+                  tooltip: 'Quote',
                   onPressed: _addQuoteBlock,
                   icon: const Icon(
                     Icons.format_quote,
@@ -620,6 +614,7 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
                 // IMAGE
                 // =================================================
                 IconButton(
+                  tooltip: 'Add Image',
                   onPressed: _addImageBlock,
                   icon: const Icon(
                     Icons.image_outlined,
@@ -632,6 +627,7 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
                 // COLOR
                 // =================================================
                 IconButton(
+                  tooltip: 'Text Color',
                   onPressed: _openColorPicker,
                   icon: const Icon(
                     Icons.palette_outlined,
@@ -646,6 +642,7 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
                 // FORMAT
                 // =================================================
                 IconButton(
+                  tooltip: 'Text Formatting',
                   onPressed: _openFormatBottomSheet,
                   icon: const Icon(
                     Icons.text_fields,

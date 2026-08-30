@@ -91,6 +91,23 @@ class _HomePageState extends State<HomePage>
     setState(() {
       notes.clear();
       notes.addAll(savedNotes);
+      _sortNotesByPin();
+    });
+  }
+  // ============================================================
+  // SORT NOTES BY PIN
+  // ============================================================
+
+  void _sortNotesByPin() {
+    notes.sort((a, b) {
+      if (a.isPinned && !b.isPinned) {
+        return -1;
+      }
+      if (!a.isPinned && b.isPinned) {
+        return 1;
+      }
+
+      return 0;
     });
   }
 
@@ -159,18 +176,51 @@ class _HomePageState extends State<HomePage>
   Future<void> _deleteSelectedNotes() async {
     if (_selectedNoteIds.isEmpty) return;
 
-    final count = _selectedNoteIds.length;
+    final selectedIds = Set<String>.from(_selectedNoteIds);
+
+    final selectedNotes = notes
+        .where((note) => selectedIds.contains(note.id))
+        .toList();
+
+    if (selectedNotes.isEmpty) return;
+
+    // ============================================================
+    // CHECK LOCKED NOTES
+    // ============================================================
+
+    final hasLockedNote = selectedNotes.any((note) => note.isLocked);
+
+    // ============================================================
+    // IF THERE IS A LOCKED NOTE → ASK FOR PIN
+    // ============================================================
+
+    if (hasLockedNote) {
+      final authenticated = await _authenticateWithPin();
+
+      if (!authenticated) {
+        return;
+      }
+    }
+
+    // ============================================================
+    // DELETE
+    // ============================================================
+
+    final count = selectedNotes.length;
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
           insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+
           title: const Text('Delete Notes'),
+
           content: Text(
             'Are you sure you want to delete '
             '$count note${count == 1 ? '' : 's'}?',
           ),
+
           actions: [
             TextButton(
               style: TextButton.styleFrom(
@@ -191,7 +241,9 @@ class _HomePageState extends State<HomePage>
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
+
             const SizedBox(width: 8),
+
             TextButton(
               style: TextButton.styleFrom(
                 backgroundColor: Colors.red.withValues(alpha: 0.15),
@@ -219,13 +271,19 @@ class _HomePageState extends State<HomePage>
 
     if (confirmed != true) return;
 
-    final selectedIds = Set<String>.from(_selectedNoteIds);
+    // ============================================================
+    // DELETE FROM DATABASE
+    // ============================================================
 
     for (final noteId in selectedIds) {
       await _noteRepository.deleteNote(noteId);
     }
 
     if (!mounted) return;
+
+    // ============================================================
+    // REMOVE FROM LOCAL LIST
+    // ============================================================
 
     setState(() {
       notes.removeWhere((note) => selectedIds.contains(note.id));
@@ -554,6 +612,7 @@ class _HomePageState extends State<HomePage>
     // ============================================================
 
     final canUseBiometric = await security.canUseBiometrics();
+    debugPrint('CAN USE BIOMETRIC = $canUseBiometric');
 
     if (!canUseBiometric || !mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -571,7 +630,11 @@ class _HomePageState extends State<HomePage>
     // AUTHENTICATE
     // ============================================================
 
+    debugPrint('STARTING BIOMETRIC AUTH');
+
     final authenticated = await security.authenticateWithBiometrics();
+
+    debugPrint('BIOMETRIC AUTH RESULT = $authenticated');
 
     if (!authenticated) {
       return;
@@ -582,6 +645,10 @@ class _HomePageState extends State<HomePage>
     // ============================================================
 
     await security.setBiometricEnabled(true);
+
+    final check = await security.isBiometricEnabled();
+
+    debugPrint('BIOMETRIC ENABLED = $check');
   }
 
   // ============================================================
@@ -632,6 +699,8 @@ class _HomePageState extends State<HomePage>
     if (!mounted) return;
 
     setState(() {
+      _sortNotesByPin();
+
       _selectedNoteIds.clear();
       _isSelectionMode = false;
     });
@@ -1245,7 +1314,7 @@ class _HomePageState extends State<HomePage>
 
         title: _isSelectionMode
             ? Text('${_selectedNoteIds.length} selected')
-            : const Text('Notes'),
+            : const Text('Notes', style: TextStyle(fontSize: 30)),
 
         leading: _isSelectionMode
             ? IconButton(
@@ -1257,13 +1326,21 @@ class _HomePageState extends State<HomePage>
         actions: _isSelectionMode
             ? [
                 // ==================================================
+                // DELETE
+                // ==================================================
+                IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  iconSize: 28,
+                  onPressed: _deleteSelectedNotes,
+                ),
+                // ==================================================
                 // PIN / LOCK MENU
                 // ==================================================
                 PopupMenuButton<String>(
                   padding: EdgeInsets.zero,
                   icon: const Icon(Icons.more_vert),
                   iconSize: 30,
-                  iconColor: AppColors.textMuted,
+                  iconColor: AppColors.textPriamry,
 
                   menuPadding: const EdgeInsets.all(8),
 
@@ -1349,15 +1426,6 @@ class _HomePageState extends State<HomePage>
                     ];
                   },
                 ),
-
-                // ==================================================
-                // DELETE
-                // ==================================================
-                IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  iconSize: 28,
-                  onPressed: _deleteSelectedNotes,
-                ),
               ]
             : [
                 // ==================================================
@@ -1434,6 +1502,8 @@ class _HomePageState extends State<HomePage>
                 child: Padding(
                   padding: const EdgeInsets.only(top: 10),
                   child: TabBar(
+                    splashFactory: NoSplash.splashFactory,
+                    overlayColor: WidgetStateProperty.all(Colors.transparent),
                     controller: _tabController,
                     dividerColor: Colors.transparent,
                     indicatorColor: const Color(0xFFF5C65D),

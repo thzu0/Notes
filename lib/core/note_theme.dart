@@ -5,107 +5,340 @@ import 'note_text_style.dart';
 class NoteTheme {
   static ThemeData get darkTheme {
     return ThemeData(
-      brightness: Brightness.dark, //because UI is navy
-      scaffoldBackgroundColor:
-          AppColors.background, //background color of all page
-      primaryColor: AppColors.primaryPurple, //main color of app
-      //=== Color Scheme ===
-      colorScheme: ColorScheme(
-        brightness: Brightness.dark, // روشنایی کلی تم (تیره)
-        error: Color(
-          0xFFE74C3C,
-        ), // رنگ خطا (قرمز، برای پیام‌های ارور و اعتبارسنجی)
-        onError: AppColors.textPriamry, //رنگ متن روی پس‌زمینه ارور
-        primary: AppColors.primaryPurple, //رنگ اصلی (دکمه‌ها، آیکون فعال)
-        secondary: AppColors.folderYellow, //رنگ ثانویه (زرد فولدرها)
-        surface: AppColors.darkCardBackground, //پس‌زمینه کارت‌ها و سطوح
-        onPrimary: AppColors.textPriamry, //رنگ متن روی primary
-        onSecondary: AppColors.textPriamry, //رنگ متن روی secondary
-        onSurface: AppColors.textPriamry, //رنگ متن روی surface
+      // ==========================================================
+      // GENERAL
+      // ==========================================================
+      brightness: Brightness.dark,
+
+      fontFamily: 'Vazirmatn',
+
+      scaffoldBackgroundColor: AppColors.background,
+
+      primaryColor: AppColors.primaryPurple,
+
+      useMaterial3: true,
+
+      // ==========================================================
+      // COLOR SCHEME
+      // ==========================================================
+      colorScheme: const ColorScheme(
+        brightness: Brightness.dark,
+        primary: AppColors.primaryPurple,
+        onPrimary: AppColors.textPriamry,
+
+        secondary: AppColors.folderYellow,
+        onSecondary: AppColors.textPriamry,
+
+        error: Color(0xFFE74C3C),
+        onError: AppColors.textPriamry,
+
+        surface: AppColors.darkCardBackground,
+        onSurface: AppColors.textPriamry,
       ),
 
-      //=== AppBar ===
+      // ==========================================================
+      // APP BAR
+      // ==========================================================
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.background,
         elevation: 0,
         centerTitle: false,
-        titleTextStyle: NoteTextStyle.headingTitleApp,
+
+        titleTextStyle: TextStyle(
+          fontFamily: 'Vazirmatn',
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textPriamry,
+        ),
+
         iconTheme: IconThemeData(color: AppColors.textPriamry),
       ),
 
-      //=== Text Theme ===
-      textTheme: TextTheme(
-        headlineLarge: NoteTextStyle.headingTitleApp,
-        headlineMedium: NoteTextStyle.headingTitleCard,
-        bodyLarge: NoteTextStyle.bodyMedium,
-        bodyMedium: NoteTextStyle.bodyRegular,
-        bodySmall: NoteTextStyle.caption,
-        labelLarge: NoteTextStyle.button,
-      ),
+      // ==========================================================
+      // TEXT THEME
+      // ==========================================================
+      textTheme: const TextTheme(
+        displayLarge: TextStyle(
+          fontFamily: 'Vazirmatn',
+          fontSize: 32,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textPriamry,
+        ),
 
-      //=== Card ===
-      cardTheme: CardThemeData(
-        color: AppColors.darkCardBackground,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16.0),
+        displayMedium: TextStyle(
+          fontFamily: 'Vazirmatn',
+          fontSize: 28,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textPriamry,
+        ),
+
+        headlineLarge: TextStyle(
+          fontFamily: 'Vazirmatn',
+          fontSize: 24,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textPriamry,
+        ),
+
+        headlineMedium: TextStyle(
+          fontFamily: 'Vazirmatn',
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textPriamry,
+        ),
+
+        headlineSmall: TextStyle(
+          fontFamily: 'Vazirmatn',
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPriamry,
+        ),
+
+        titleLarge: TextStyle(
+          fontFamily: 'Vazirmatn',
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPriamry,
+        ),
+
+        titleMedium: TextStyle(
+          fontFamily: 'Vazirmatn',
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPriamry,
+        ),
+
+        titleSmall: TextStyle(
+          fontFamily: 'Vazirmatn',
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPriamry,
+        ),
+
+        bodyLarge: TextStyle(
+          fontFamily: 'Vazirmatn',
+          fontSize: 16,
+          fontWeight: FontWeight.w400,
+          color: AppColors.textPriamry,
+        ),
+
+        bodyMedium: TextStyle(
+          fontFamily: 'Vazirmatn',
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          color: AppColors.textPriamry,
+        ),
+
+        bodySmall: TextStyle(
+          fontFamily: 'Vazirmatn',
+          fontSize: 12,
+          fontWeight: FontWeight.w400,
+          color: AppColors.textSecondery,
+        ),
+
+        labelLarge: TextStyle(
+          fontFamily: 'Vazirmatn',
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPriamry,
+        ),
+
+        labelMedium: TextStyle(
+          fontFamily: 'Vazirmatn',
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: AppColors.textSecondery,
+        ),
+
+        labelSmall: TextStyle(
+          fontFamily: 'Vazirmatn',
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: AppColors.textSecondery,
         ),
       ),
 
-      //=== Elevated Button ===
+      // ==========================================================
+      // CARD
+      // ==========================================================
+      cardTheme: CardThemeData(
+        color: AppColors.darkCardBackground,
+        elevation: 0,
+
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+
+      // ==========================================================
+      // ELEVATED BUTTON
+      // ==========================================================
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primaryPurple,
           foregroundColor: AppColors.textPriamry,
-          textStyle: NoteTextStyle.button,
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+
+          textStyle: const TextStyle(
+            fontFamily: 'Vazirmatn',
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 15),
+
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(40),
+            borderRadius: BorderRadius.circular(16),
+          ),
+
+          elevation: 0,
+        ),
+      ),
+
+      // ==========================================================
+      // TEXT BUTTON
+      // ==========================================================
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.textPriamry,
+
+          textStyle: const TextStyle(
+            fontFamily: 'Vazirmatn',
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
 
-      //=== Floating Action Button ====
-      floatingActionButtonTheme: FloatingActionButtonThemeData(
+      // ==========================================================
+      // FLOATING ACTION BUTTON
+      // ==========================================================
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: AppColors.primaryPurple,
         foregroundColor: AppColors.textPriamry,
         elevation: 4,
       ),
 
-      //=== Divider ===
+      // ==========================================================
+      // DIVIDER
+      // ==========================================================
       dividerTheme: const DividerThemeData(
         color: AppColors.divider,
         thickness: 1,
+        space: 1,
       ),
 
-      //=== Icon ===
-      iconTheme: const IconThemeData(color: AppColors.textSecondery),
+      // ==========================================================
+      // ICON
+      // ==========================================================
+      iconTheme: const IconThemeData(color: AppColors.textSecondery, size: 22),
 
-      //=== Checkbox ==
+      // ==========================================================
+      // CHECKBOX
+      // ==========================================================
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith((state) {
           if (state.contains(WidgetState.selected)) {
-            return AppColors.checkBlueTargets; //وقتی تیک خورده، آبی می‌شه
+            return AppColors.checkBlueTargets;
           }
-          return Colors.transparent; // وقتی خالیه، بدون رنگ پرشده
+
+          return Colors.transparent;
         }),
+
         checkColor: WidgetStateProperty.all(AppColors.textPriamry),
-        side: const BorderSide(
-          color: AppColors.textMuted,
-          width: 1.5,
-        ), //لبه چک‌باکس خالی
+
+        side: const BorderSide(color: AppColors.textMuted, width: 1.5),
+
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
       ),
 
-      //=== Input Decoration ===
-      //theme for feild of search and popmenue and other
+      // ==========================================================
+      // INPUT DECORATION
+      // ==========================================================
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
+
         fillColor: AppColors.darkCardBackground,
-        hintStyle: NoteTextStyle.bodyRegular,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none, // بدون خط دور فیلد
+
+        hintStyle: const TextStyle(
+          fontFamily: 'Vazirmatn',
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          color: AppColors.textSecondery,
         ),
+
+        labelStyle: const TextStyle(
+          fontFamily: 'Vazirmatn',
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: AppColors.textSecondery,
+        ),
+
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+
+          borderSide: BorderSide.none,
+        ),
+
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+
+          borderSide: BorderSide.none,
+        ),
+
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+
+          borderSide: const BorderSide(
+            color: AppColors.primaryPurple,
+            width: 1.2,
+          ),
+        ),
+
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+      ),
+
+      // ==========================================================
+      // DROPDOWN
+      // ==========================================================
+      dropdownMenuTheme: DropdownMenuThemeData(
+        textStyle: const TextStyle(
+          fontFamily: 'Vazirmatn',
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: AppColors.textPriamry,
+        ),
+
+        menuStyle: MenuStyle(
+          backgroundColor: WidgetStateProperty.all(
+            AppColors.darkCardBackground,
+          ),
+
+          shape: WidgetStateProperty.all(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          ),
+        ),
+      ),
+
+      // ==========================================================
+      // TOOLTIP
+      // ==========================================================
+      tooltipTheme: TooltipThemeData(
+        decoration: BoxDecoration(
+          color: const Color(0xFF2A2D35),
+          borderRadius: BorderRadius.circular(8),
+        ),
+
+        textStyle: const TextStyle(
+          fontFamily: 'Vazirmatn',
+          fontSize: 12,
+          color: Colors.white,
+        ),
+
+        waitDuration: const Duration(milliseconds: 400),
       ),
     );
   }
