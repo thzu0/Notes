@@ -87,18 +87,8 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
   // FLEATHER CHANGED
   // ============================================================
 
-  // نکته مهم: این لیسنر وسط فرآیند تایپ/پیست توسط Fleather صدا زده می‌شه.
-  // اگه همینجا مستقیم setState صدا بزنیم، ممکنه وسط build خود ادیتور
-  // اتفاق بیفته و اکسپشن "setState() called during build" بده که
-  // تو ریلیز مود باعث سفید شدن کامل صفحه می‌شه. برای همین کارو به
-  // فریم بعدی موکول می‌کنیم.
   void _onFleatherChanged() {
-    if (!mounted) return;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _saveFleatherDocument(notifyEditor: false);
-    });
+    _saveFleatherDocument(notifyEditor: false);
   }
 
   // ============================================================
@@ -106,67 +96,61 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
   // ============================================================
 
   void _saveFleatherDocument({bool notifyEditor = true}) {
-    try {
-      final document = _fleatherController.document;
+    final document = _fleatherController.document;
 
-      final dynamic json = document.toJson();
+    final dynamic json = document.toJson();
 
-      final String jsonString = jsonEncode(json);
+    final String jsonString = jsonEncode(json);
 
-      final String plainText = document.toPlainText().trim();
+    final String plainText = document.toPlainText().trim();
 
-      final int existingTextIndex = _blocks.indexWhere(
-        (block) => block.type == NoteBlockType.text,
-      );
+    final int existingTextIndex = _blocks.indexWhere(
+      (block) => block.type == NoteBlockType.text,
+    );
 
-      // ----------------------------------------------------------
-      // EMPTY
-      // ----------------------------------------------------------
+    // ----------------------------------------------------------
+    // EMPTY
+    // ----------------------------------------------------------
 
-      if (plainText.isEmpty) {
-        if (existingTextIndex != -1) {
-          setState(() {
-            _blocks.removeAt(existingTextIndex);
-            _blockKeys.removeAt(existingTextIndex);
-          });
-        }
-
-        if (notifyEditor) {
-          _notifyChanged();
-        }
-
-        return;
-      }
-
-      // ----------------------------------------------------------
-      // TEXT BLOCK
-      // ----------------------------------------------------------
-
-      final textBlock = NoteBlock(
-        type: NoteBlockType.text,
-        text: plainText,
-        richTextJson: jsonString,
-      );
-
-      if (existingTextIndex == -1) {
+    if (plainText.isEmpty) {
+      if (existingTextIndex != -1) {
         setState(() {
-          _blocks.insert(0, textBlock);
-
-          _blockKeys.insert(0, UniqueKey());
-        });
-      } else {
-        setState(() {
-          _blocks[existingTextIndex] = textBlock;
+          _blocks.removeAt(existingTextIndex);
+          _blockKeys.removeAt(existingTextIndex);
         });
       }
 
       if (notifyEditor) {
         _notifyChanged();
       }
-    } catch (e, st) {
-      // اگه به هر دلیلی (مثلاً JSON پیچیده پیست‌شده) خطا داد،
-      // کل اپ کرش نکنه؛ فقط لاگ بگیریم.
-      debugPrint('Fleather save error: $e\n$st');
+
+      return;
+    }
+
+    // ----------------------------------------------------------
+    // TEXT BLOCK
+    // ----------------------------------------------------------
+
+    final textBlock = NoteBlock(
+      type: NoteBlockType.text,
+      text: plainText,
+      richTextJson: jsonString,
+    );
+
+    if (existingTextIndex == -1) {
+      setState(() {
+        _blocks.insert(0, textBlock);
+
+        _blockKeys.insert(0, UniqueKey());
+      });
+    } else {
+      setState(() {
+        _blocks[existingTextIndex] = textBlock;
+      });
+    }
+
+    if (notifyEditor) {
+      _notifyChanged();
     }
   }
 
@@ -386,8 +370,6 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
             Expanded(
               child: Text(
                 block.text ?? '',
-                textDirection: TextDirection.rtl,
-                textAlign: TextAlign.right,
                 style: const TextStyle(color: Colors.white, fontSize: 15),
               ),
             ),
@@ -550,18 +532,24 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
                 width: double.infinity,
                 child: Stack(
                   children: [
-                    if (_fleatherController.document
-                        .toPlainText()
-                        .trim()
-                        .isEmpty)
-                      Positioned(
-                        top: 8,
-                        right: 0,
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 16),
-                          child: Text(
-                            'اینجا بنویس...',
-                            textDirection: TextDirection.rtl,
+                    // Placeholder همیشه در درخت می‌ماند؛ فقط شفاف/محو می‌شود.
+                    // این کار باعث می‌شود FleatherEditor هیچ‌وقت به‌خاطر
+                    // حذف/اضافه شدن placeholder دوباره ساخته نشود
+                    // و فوکوس + انتخاب متن (برای Copy) از دست نرود.
+                    Positioned(
+                      top: 8,
+                      left: 16,
+                      child: IgnorePointer(
+                        child: Opacity(
+                          opacity:
+                              _fleatherController.document
+                                  .toPlainText()
+                                  .trim()
+                                  .isEmpty
+                              ? 1
+                              : 0,
+                          child: const Text(
+                            'Write content here ...',
                             style: TextStyle(
                               color: AppColors.textMuted,
                               fontSize: 18,
@@ -569,16 +557,21 @@ class FreeNoteEditorState extends State<FreeNoteEditor> {
                           ),
                         ),
                       ),
-
-                    Directionality(
-                      textDirection: TextDirection.rtl,
-                      child: FleatherEditor(
-                        controller: _fleatherController,
-                        focusNode: _fleatherFocusNode,
-                        editorKey: _fleatherEditorKey,
-                        autofocus: false,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                      ),
+                    ),
+                    FleatherEditor(
+                      key: const ValueKey('fleather-content-editor'),
+                      controller: _fleatherController,
+                      focusNode: _fleatherFocusNode,
+                      editorKey: _fleatherEditorKey,
+                      autofocus: false,
+                      enableInteractiveSelection: true,
+                      contextMenuBuilder: (context, EditorState editorState) {
+                        return AdaptiveTextSelectionToolbar.buttonItems(
+                          buttonItems: editorState.contextMenuButtonItems,
+                          anchors: editorState.contextMenuAnchors,
+                        );
+                      },
+                      padding: const EdgeInsets.symmetric(vertical: 8),
                     ),
                   ],
                 ),
@@ -749,8 +742,6 @@ class _ChecklistBlockItemState extends State<_ChecklistBlockItem> {
             child: TextField(
               controller: _controller,
               onChanged: widget.onTextChanged,
-              textDirection: TextDirection.rtl,
-              textAlign: TextAlign.right,
               style: TextStyle(
                 fontSize: 16,
                 color: AppColors.textPriamry,
@@ -759,7 +750,7 @@ class _ChecklistBlockItemState extends State<_ChecklistBlockItem> {
               decoration: const InputDecoration(
                 isDense: true,
                 border: InputBorder.none,
-                hintText: 'افزودن مورد...',
+                hintText: 'Add Item ...',
                 hintStyle: TextStyle(
                   fontSize: 11,
                   color: AppColors.textSecondery,
@@ -847,8 +838,6 @@ class _QuoteBlockItemState extends State<_QuoteBlockItem> {
             TextField(
               controller: _textController,
               onChanged: widget.onTextChanged,
-              textDirection: TextDirection.rtl,
-              textAlign: TextAlign.right,
               minLines: 1,
               maxLines: null,
               style: const TextStyle(
@@ -859,7 +848,7 @@ class _QuoteBlockItemState extends State<_QuoteBlockItem> {
               decoration: const InputDecoration(
                 isDense: true,
                 border: InputBorder.none,
-                hintText: 'نقل قول...',
+                hintText: 'Quote...',
                 hintStyle: TextStyle(
                   color: Colors.grey,
                   fontStyle: FontStyle.italic,
@@ -872,15 +861,13 @@ class _QuoteBlockItemState extends State<_QuoteBlockItem> {
             TextField(
               controller: _authorController,
               onChanged: widget.onAuthorChanged,
-              textDirection: TextDirection.rtl,
-              textAlign: TextAlign.right,
               style: const TextStyle(color: Colors.grey, fontSize: 13),
               decoration: const InputDecoration(
                 isDense: true,
                 border: InputBorder.none,
                 prefixText: '— ',
                 prefixStyle: TextStyle(color: Colors.grey, fontSize: 13),
-                hintText: 'نویسنده...',
+                hintText: 'Author...',
                 hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
               ),
             ),

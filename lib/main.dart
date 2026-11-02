@@ -48,7 +48,10 @@ class _NotesAppState extends State<NotesApp> {
         GlobalWidgetsLocalizations.delegate,
       ],
 
-      supportedLocales: FleatherLocalizations.supportedLocales,
+      supportedLocales: const [
+        Locale('en'), // fallback
+        Locale('fa'),
+      ],
 
       home: widget.onboardingCompleted
           ? const HomePage()
