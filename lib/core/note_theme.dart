@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'note_colors.dart';
-import 'note_text_style.dart';
 
 class NoteTheme {
   static ThemeData get darkTheme {

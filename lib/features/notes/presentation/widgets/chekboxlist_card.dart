@@ -34,7 +34,6 @@ class ChecklistCard extends StatelessWidget {
           const SizedBox(height: 8),
 
           ...items.asMap().entries.map((entry) {
-            final index = entry.key;
             final item = entry.value;
 
             return Padding(

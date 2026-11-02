@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 enum NoteType { reminder, cheklist, quote, diary, target, image, text }
 
 class Note {
