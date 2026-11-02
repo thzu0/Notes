@@ -16,7 +16,7 @@ import 'package:notes_app/features/notes/presentation/widgets/reminder_time_pick
 /// Reminder ساختار اختصاصی خودش را دارد:
 /// - Task
 /// - Reminder Time
-///ff
+///
 /// بقیه Tagها از FreeNoteEditor استفاده می‌کنند و می‌توانند
 /// چند نوع Block مختلف مثل Text / Checklist / Quote / Image داشته باشند.
 class CreateNotePage extends StatefulWidget {
@@ -184,10 +184,9 @@ class _CreateNotePageState extends State<CreateNotePage> {
                     controller: _reminderController,
                     textDirection: TextDirection.rtl,
                     textAlign: TextAlign.right,
-
                     style: const TextStyle(color: _textColor, fontSize: 16),
                     decoration: const InputDecoration(
-                      hintText: 'Add Item...',
+                      hintText: 'افزودن مورد...',
                       hintStyle: TextStyle(color: _hintColor),
                       border: InputBorder.none,
                     ),
@@ -262,8 +261,10 @@ class _CreateNotePageState extends State<CreateNotePage> {
           Expanded(
             child: Text(
               _reminderTime == null
-                  ? 'Set reminder time'
-                  : 'Reminder at ${TimeOfDay.fromDateTime(_reminderTime!).format(context)}',
+                  ? 'زمان یادآوری را تنظیم کن'
+                  : 'یادآوری در ساعت ${TimeOfDay.fromDateTime(_reminderTime!).format(context)}',
+              textDirection: TextDirection.rtl,
+              textAlign: TextAlign.right,
               style: const TextStyle(color: _textColor, fontSize: 15),
             ),
           ),
@@ -271,7 +272,7 @@ class _CreateNotePageState extends State<CreateNotePage> {
           TextButton(
             onPressed: _pickReminderTime,
             child: Text(
-              _reminderTime == null ? 'Set' : 'Change',
+              _reminderTime == null ? 'تنظیم' : 'تغییر',
               style: const TextStyle(color: Color(0xFFF5C65D)),
             ),
           ),
@@ -331,120 +332,124 @@ class _CreateNotePageState extends State<CreateNotePage> {
   Widget build(BuildContext context) {
     final double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      backgroundColor: AppColors.darkCardBackground,
-
-      appBar: AppBar(
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        resizeToAvoidBottomInset: false,
         backgroundColor: AppColors.darkCardBackground,
-        elevation: 0,
-        toolbarHeight: 56,
 
-        actions: <Widget>[
-          TextButton(
-            onPressed: _saveNote,
+        appBar: AppBar(
+          backgroundColor: AppColors.darkCardBackground,
+          elevation: 0,
+          toolbarHeight: 56,
 
-            child: const Text(
-              'Save',
-              style: TextStyle(fontSize: 17, color: Colors.white),
-            ),
-          ),
-        ],
-      ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: _saveNote,
 
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: <Widget>[
-            // -----------------------------------------------
-            // Date + Category
-            // -----------------------------------------------
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-
-              child: Row(
-                children: <Widget>[
-                  Text(
-                    'Edited: $_formattedEditedDate',
-                    style: const TextStyle(color: _hintColor, fontSize: 13),
-                  ),
-
-                  const Spacer(),
-
-                  _CategoryDropdown(
-                    value: selectedType,
-                    dotColor: _categoryColor,
-                    items: NoteType.values,
-
-                    onChanged: (newValue) {
-                      if (newValue == null) {
-                        return;
-                      }
-
-                      setState(() {
-                        selectedType = newValue;
-                      });
-                    },
-                  ),
-                ],
+              child: const Text(
+                'ذخیره',
+                style: TextStyle(fontSize: 17, color: Colors.white),
               ),
             ),
+          ],
+        ),
 
-            // -----------------------------------------------
-            // Title
-            // -----------------------------------------------
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: <Widget>[
+              // -----------------------------------------------
+              // Date + Category
+              // -----------------------------------------------
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
 
-              child: TextField(
-                controller: _titleController,
-                textDirection: TextDirection.rtl,
-                textAlign: TextAlign.right,
+                child: Row(
+                  children: <Widget>[
+                    Text(
+                      'ویرایش شده: $_formattedEditedDate',
+                      textDirection: TextDirection.rtl,
+                      style: const TextStyle(color: _hintColor, fontSize: 13),
+                    ),
 
-                style: const TextStyle(
-                  color: _textColor,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w500,
-                ),
+                    const Spacer(),
 
-                decoration: const InputDecoration(
-                  hintText: 'Title',
+                    _CategoryDropdown(
+                      value: selectedType,
+                      dotColor: _categoryColor,
+                      items: NoteType.values,
 
-                  hintStyle: TextStyle(color: _hintColor, fontSize: 22),
+                      onChanged: (newValue) {
+                        if (newValue == null) {
+                          return;
+                        }
 
-                  border: InputBorder.none,
-                ),
-              ),
-            ),
-
-            // -----------------------------------------------
-            // Reminder Time
-            // -----------------------------------------------
-            if (selectedType == NoteType.reminder) _buildReminderTimePicker(),
-
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Divider(color: _dividerColor, height: 24, thickness: 1),
-            ),
-
-            // -----------------------------------------------
-            // Main Editor
-            // -----------------------------------------------
-            Expanded(
-              child: selectedType == NoteType.reminder
-                  ? _buildReminderEditor(keyboardHeight)
-                  : FreeNoteEditor(
-                      key: _editorKey,
-                      initialBlocks: _noteBlocks,
-
-                      onChanged: (blocks) {
                         setState(() {
-                          _noteBlocks = List<NoteBlock>.from(blocks);
+                          selectedType = newValue;
                         });
                       },
                     ),
-            ),
-          ],
+                  ],
+                ),
+              ),
+
+              // -----------------------------------------------
+              // Title
+              // -----------------------------------------------
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+
+                child: TextField(
+                  controller: _titleController,
+                  textDirection: TextDirection.rtl,
+                  textAlign: TextAlign.right,
+
+                  style: const TextStyle(
+                    color: _textColor,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w500,
+                  ),
+
+                  decoration: const InputDecoration(
+                    hintText: 'عنوان',
+
+                    hintStyle: TextStyle(color: _hintColor, fontSize: 22),
+
+                    border: InputBorder.none,
+                  ),
+                ),
+              ),
+
+              // -----------------------------------------------
+              // Reminder Time
+              // -----------------------------------------------
+              if (selectedType == NoteType.reminder) _buildReminderTimePicker(),
+
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Divider(color: _dividerColor, height: 24, thickness: 1),
+              ),
+
+              // -----------------------------------------------
+              // Main Editor
+              // -----------------------------------------------
+              Expanded(
+                child: selectedType == NoteType.reminder
+                    ? _buildReminderEditor(keyboardHeight)
+                    : FreeNoteEditor(
+                        key: _editorKey,
+                        initialBlocks: _noteBlocks,
+
+                        onChanged: (blocks) {
+                          setState(() {
+                            _noteBlocks = List<NoteBlock>.from(blocks);
+                          });
+                        },
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );
