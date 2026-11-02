@@ -139,6 +139,8 @@ class _CreateNotePageState extends State<CreateNotePage> {
                     Expanded(
                       child: Text(
                         item.title,
+                        textDirection: TextDirection.rtl,
+                        textAlign: TextAlign.right,
                         style: const TextStyle(color: _textColor, fontSize: 16),
                       ),
                     ),
@@ -180,6 +182,9 @@ class _CreateNotePageState extends State<CreateNotePage> {
                 Expanded(
                   child: TextField(
                     controller: _reminderController,
+                    textDirection: TextDirection.rtl,
+                    textAlign: TextAlign.right,
+
                     style: const TextStyle(color: _textColor, fontSize: 16),
                     decoration: const InputDecoration(
                       hintText: 'Add Item...',
@@ -393,6 +398,8 @@ class _CreateNotePageState extends State<CreateNotePage> {
 
               child: TextField(
                 controller: _titleController,
+                textDirection: TextDirection.rtl,
+                textAlign: TextAlign.right,
 
                 style: const TextStyle(
                   color: _textColor,
